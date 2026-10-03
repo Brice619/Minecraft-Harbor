@@ -6,7 +6,7 @@ Use Windows and the .NET 10 SDK. From the repository root, run:
 ./Build-Release.ps1
 ```
 
-The script publishes Harbor, the LAN client installer, and the 1.0 app installer. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
+The script publishes Harbor, the LAN client installer, and the 1.1 app installer. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
 
 The installer payload is generated from these builds. Do not commit `payload.zip`, build output, server data, saved worlds, local settings, or credentials.
 
@@ -28,4 +28,4 @@ dotnet publish source/MinecraftHarbor.csproj -p:PublishProfile=Local -o artifact
 
 Fixture checks and their arguments are listed in `source/BUILD.txt`. Real-server verification starts and stops a world; do not run it while an existing Harbor server is running.
 
-Building an unsigned installer does not guarantee Windows signing/reputation approval. This repository's 1.0 release remains a prerelease pending final main-app verification.
+Building an unsigned installer does not guarantee Windows signing/reputation approval. Release checks run against the built executables in isolated test folders; they do not use personal server worlds.
