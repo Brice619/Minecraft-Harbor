@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <AssemblyName>Minecraft-Harbor-Agent-Setup</AssemblyName><Version>1.1.0</Version><Company>Rise Digital</Company><Product>Minecraft Harbor Client</Product><ApplicationIcon>../source/harbor.ico</ApplicationIcon><ApplicationManifest>../source/app.manifest</ApplicationManifest>
+    <AssemblyName>Minecraft-Harbor-Agent-Setup</AssemblyName><Version>1.2.0</Version><Company>Rise Digital</Company><Product>Minecraft Harbor Client</Product><ApplicationIcon>../source/harbor.ico</ApplicationIcon><ApplicationManifest>../source/app.manifest</ApplicationManifest>
     <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained><RuntimeIdentifier>win-x64</RuntimeIdentifier><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <ItemGroup>
@@ -10,5 +10,3 @@
     <PackageReference Include="System.Management" Version="10.0.0"/>
   </ItemGroup>
 </Project>
-
-
