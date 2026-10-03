@@ -1,0 +1,75 @@
+Requires the .NET 10 SDK with Windows Desktop support.
+From this source directory:
+dotnet publish -p:PublishProfile=Local -o bin\publish
+Copy the published files from bin\publish into the parent Minecraft-Harbor folder.
+
+The Local profile uses the installed .NET 10 Windows Desktop runtime. Native
+libraries remain beside the executable. Do not silently change local deployment
+to bundle and extract the runtime; use a separate profile for that distribution.
+This packaging choice does not guarantee Smart App Control approval. Windows may
+reject an unsigned build before the app starts, and its cached trust can change.
+Correlate CodeIntegrity events with the exact executable hash before blaming a
+feature or claiming a rebuild fixed security enforcement.
+
+Close the application before rebuilding it.
+
+Server lifetime verification: --lifetime-test <absolute-report.json> and
+--lifetime-window-test <absolute-report.json>. Both use disposable mock worlds.
+They verify normal window close, force-ending the window process, and the Windows
+job fallback if the supervisor itself is ended. The supervisor owns Minecraft's
+stdin and waits for a normal stop after its owner exits. It permits four minutes
+for shutdown, then ends a stalled process without claiming a successful save.
+CPU and memory readings use the recorded Minecraft PID, not the supervisor PID.
+
+Quality checks:
+"..\Minecraft Harbor.exe" --self-test <absolute-test-report.json>
+"..\Minecraft Harbor.exe" --library-test <absolute-test-report.json>
+"..\Minecraft Harbor.exe" --preview <absolute-preview.png>
+"..\Minecraft Harbor.exe" --verify
+
+Self-test uses a separate mock world alongside its report, and exercises process
+readiness, stop, online backup, restore and path traversal rejection.
+Preview draws the app into an image and exits without starting Minecraft.
+Verify starts the actual world, verifies a Minecraft status handshake, saves, stops,
+backs up and writes verification.json. It requires the owner to accept the EULA first.
+Never run verification while Harbor is already running.
+
+Library tests use disposable profiles alongside their report. They cover opt-in
+pack setup, live switching with backup, independent world storage, source-preserving
+world import with player data, cross-pack restore rejection, and persistence.
+Put test reports under a work directory, then copy finished reports to verification.
+
+Harbor uses PerMonitorV2 and a 96-DPI design baseline. Keep AutoScaleMode.Dpi on
+forms. Custom dashboard drawing uses logical pixels scaled once by DeviceDpi;
+ordinary controls use the same baseline and responsive layout.
+The original server remains in server/; new prepared servers live under profiles/.
+library.json tracks them. Reading CurseForge metadata never sets up a server.
+
+Backup integration tests: --backup-test <absolute-report.json>
+Uses disposable mock servers and a controlled clock. Covers hourly timing, unchanged
+server PID, confirmed save replies, live file copying, failed save/copy recovery,
+save-on retry, five-hour retention and graceful close. No real world is modified.
+
+Design verification: --design-test <absolute-report.json>
+Uses a disposable mock server and the real button handlers to check Start/Stop
+color and visibility, navigation, responsive controls, live appearance changes,
+official CurseForge image caching, and one-hour history calculation/persistence.
+Also checks repeated dropdown opening/dismissal and automatic title detection on
+unrelated images with text at different positions and angles, including safe
+fallbacks for unreadable or unrelated text. Tesseract 5.2.0 and eng.traineddata are local runtime dependencies;
+copy the published x64/ and tessdata/ folders alongside the EXE when deploying.
+Rendered images are written beside the report. The real server stays untouched.
+Assets/night-harbor.png is embedded in the application; its prompt is saved beside it.
+
+Branding: Assets/harbor-wordmark.png is the horizontal header artwork;
+Assets/harbor-icon.png is the stacked desktop/app artwork. Their generation prompts
+are saved in Assets/harbor-branding-prompts.txt. Build-Icon.ps1 packages the stacked
+PNG into harbor.ico at 16, 24, 32, 48, 64, 128 and 256 pixels, preserving transparency.
+The icon is embedded in both the EXE resource and the managed window/tray resource.
+The desktop shortcut uses harbor-wordmark.ico beside the deployed EXE.
+
+Background rendering is cached per surface size, DPI and appearance. Scrollable
+pages sample that fixed viewport background while their controls scroll; scrolling
+does not reload an image or regenerate the background. Design checks compare a
+stationary background pixel and cache generation before and after scrolling.
+

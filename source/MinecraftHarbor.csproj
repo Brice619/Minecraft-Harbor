@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Minecraft Harbor</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>harbor.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Authors>Rise Digital</Authors>
+    <Company>Rise Digital</Company><Product>Minecraft Harbor</Product><Copyright>Copyright © Rise Digital</Copyright>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\night-harbor.png" />
+    <EmbeddedResource Include="Assets\harbor-wordmark.png" />
+    <EmbeddedResource Include="Assets\create-*.png" />
+    <EmbeddedResource Include="harbor.ico" />
+    <None Update="tessdata\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+  </ItemGroup>
+</Project>
