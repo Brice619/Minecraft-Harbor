@@ -1,0 +1,35 @@
+MINECRAFT HARBOR CLIENT INSTALLER
+
+Windows x64, self-contained .NET 10 WinForms executable. No administrator access
+or separate runtime is needed. Build with the .NET 10 SDK from the Harbor root:
+
+dotnet publish installer-source/HarborClientInstaller.csproj -c Release -o <staging-folder>
+
+Copy Minecraft-Harbor-Client-Setup.exe from staging to client-setup. Write its SHA256
+hex digest (only the 64-character digest) to Minecraft-Harbor-Client-Setup.exe.sha256
+in the same folder. Harbor checks this before serving the executable. Preserve
+the original helper JAR in client-setup; its independently pinned digest is embedded
+in the installer source and checked before and after installation.
+
+The source embeds AutoModpack 4.0.6 for NeoForge / Minecraft 1.21.1. The helper's
+upstream sources and notices are at https://github.com/Skidamek/AutoModpack/tree/v4.0.6
+and in META-INF/LICENSE, META-INF/LICENSE.txt and META-INF/NOTICE in its JAR.
+This installer is a personal Harbor tool, not an official CurseForge installer.
+
+Verification switches:
+  --self-test <report.json>  disposable profiles; never edits the real game profile
+  --probe <report.json>      read-only discovery of matching profiles
+  --preview <image.png>      render setup without installing anything
+
+Detection checks usual CurseForge and legacy Twitch instance directories.
+Browse supports profiles on other drives. Manifest or CurseForge metadata must
+identify ATM10 8.1 / Minecraft 1.21.1 / NeoForge 21.1.249. Setup requires existing
+mods and Ultimine, and will not create a new Minecraft profile.
+
+Install scope: only helper JAR files. Existing helper versions are backed up under
+the chosen profile's harbor-sync-backups before replacement. Other mods, saves,
+configuration and launcher metadata are untouched. Failed writes restore the old
+helper. An interrupted machine shutdown may require restoring that backup manually.
+
+The helper handles server mod updates after the usual Minecraft launch and join.
+Private custom Ultimine builds still require in-game approval and a restart.
