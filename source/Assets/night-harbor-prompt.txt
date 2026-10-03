@@ -1,0 +1,22 @@
+Created with the built-in image-generation tool, September 30, 2026.
+Reference: the owner's supplied Minecraft Harbor dashboard design.
+
+Final prompt:
+Extract and reconstruct ONLY the Minecraft-style nighttime landscape background from
+this app design reference. This is a background asset for a real desktop app, NOT a UI
+screenshot. Remove ALL text, buttons, graphs, panels, windows, icons, borders and
+interface elements. Reconstruct the hidden scenery seamlessly. Keep the reference's
+exact subdued cinematic voxel aesthetic: midnight blue sky, square pale moon and
+blocky clouds at upper right, dark block-built pine/oak forest on the left and center,
+narrow warmly illuminated stone castle tower at far right beside a still lake with
+amber reflections. All terrain and foliage visibly made of Minecraft cubes. Panoramic
+16:9 2560x1440 composition. Keep the left half extremely dark and quiet with subtle
+tree silhouettes for white UI text to be overlaid in code. Castle, moon and lake visible
+on the right third. Bottom third very dark forest and lake reflections. This is a
+low-contrast atmospheric backdrop as in the reference, no bright daylight, no people,
+no type, no watermarks, no UI. Preserve the reference lighting, palette, scene placement
+and buildings as closely as possible.
+
+Runtime rendering fits the scene behind native controls. The alternative CurseForge
+artwork is downloaded from the selected installed profile's official image URL and
+is not AI-generated. Both source images are kept unchanged.

@@ -1,0 +1,19 @@
+Minecraft Harbor branding — built-in image-generation tool, September 30, 2026.
+Reference: the owner's supplied header artwork. No other screenshot elements copied.
+
+HEADER WORDMARK
+Use case: background-extraction.
+Asset type: transparent wordmark for the title bar of a real Windows app.
+Input image: reference and extraction target. Use ONLY the small "Minecraft Harbor" word art at the top left; ignore every other part of the screenshot.
+Reconstruct that wordmark at high resolution as a clean, isolated, single-line horizontal transparent PNG. Exact case-sensitive words: "Minecraft Harbor". Match the reference's chunky beveled block lettering: Minecraft has a pale grey stone face with subtle pixel stone texture and dark extruded sides; Harbor uses the same stone block lettering with the reference's green tint, darker green bottom bevel and shadow. Straight, level baseline, front-facing, restrained shallow 3D extrusion. Keep both words on one line, evenly sized, readable at a 30-pixel title-bar height, with a modest space between the words.
+Canvas: wide transparent canvas closely fitted around the wordmark with a small equal transparent margin on all sides. Preserve all glyphs and their shadows, no cropping. Real alpha transparency.
+Do NOT include the grass cube, background, header bar, panels, UI, scenery, slogans, borders, labels, or any other text. ONLY "Minecraft Harbor".
+
+STACKED APP ICON
+Use case: compositing.
+Asset type: Windows desktop app icon, square transparent PNG.
+Edit the supplied "Minecraft Harbor" wordmark into a centered two-line logo. Exact first/top line: "Minecraft". Exact second/bottom line: "Harbor". Keep the same chunky beveled voxel stone typography, light gray stone Minecraft and bright green stone Harbor with dark shallow extrusion. Match the original letter shapes, coloring, texture and capitalization. Only change the layout: put Minecraft directly above Harbor, centered horizontally with a compact but clear gap. Enlarge Harbor so the two lines have approximately equal visual width, maximizing legibility in a small app icon. Fit the entire stacked mark in a square with balanced small transparent margins, no clipping of letters or shadows. True alpha transparent background. No grass block, no circle, no badge, no extra words, no UI or scenery. This is the isolated stacked wordmark for an actual app icon.
+
+The original generated PNGs retain alpha transparency. Header layout measures the
+visible pixels and centers them vertically. Windows icons package the same stacked
+artwork at standard icon sizes with transparent margins; no lettering is redrawn.
