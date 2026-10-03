@@ -51,26 +51,32 @@ public static class WorldImport
         }
         return new(name,version,dataVersion,uuid,player);
     }
-    public static void Copy(string source,string destination,WorldInfo info,Action<string>? progress=null)
+    public static void Copy(string source,string destination,WorldInfo info,Action<string>? progress=null,CancellationToken token=default)
     {
-        source=Path.GetFullPath(source);destination=Path.GetFullPath(destination);
+        token.ThrowIfCancellationRequested();source=Path.GetFullPath(source);destination=Path.GetFullPath(destination);
         if(destination.StartsWith(source+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("A world cannot be copied into itself.");
-        using var worldLock=File.Exists(Path.Combine(source,"session.lock"))?new FileStream(Path.Combine(source,"session.lock"),FileMode.Open,FileAccess.Read,FileShare.None):File.Open(Path.Combine(source,"level.dat"),FileMode.Open,FileAccess.Read,FileShare.Read);
+        using var worldLock=LockSave(source);
         var lockedInfo=Read(source);if(lockedInfo.MinecraftVersion!=info.MinecraftVersion)throw new IOException("This save changed during import. Close Minecraft and try again.");info=lockedInfo;
         var files=SafeFiles(source).ToArray();long bytes=files.Sum(f=>new FileInfo(f).Length);
         if(new DriveInfo(Path.GetPathRoot(destination)!).AvailableFreeSpace<bytes+512L*1024*1024)throw new IOException("Not enough free space to copy this world.");
         Directory.CreateDirectory(destination);int done=0;
         foreach(var file in files){
+            token.ThrowIfCancellationRequested();
             if(Path.GetFileName(file)=="session.lock")continue;
             var target=Path.Combine(destination,Path.GetRelativePath(source,file));Directory.CreateDirectory(Path.GetDirectoryName(target)!);File.Copy(file,target,false);
             if(++done%100==0)progress?.Invoke($"Copying world: {done:N0} / {files.Length:N0} files…");
         }
-        if(info.PlayerPayload!=null&&info.PlayerUuid!=null){
+        token.ThrowIfCancellationRequested();if(info.PlayerPayload!=null&&info.PlayerUuid!=null){
             var folder=Path.Combine(destination,"playerdata");Directory.CreateDirectory(folder);var file=Path.Combine(folder,info.PlayerUuid+".dat");
             if(File.Exists(file))File.Copy(file,file+".before-harbor-import",false);
             using var output=File.Create(file);using var zipped=new GZipStream(output,CompressionLevel.Optimal);zipped.Write(new byte[]{10,0,0});zipped.Write(info.PlayerPayload);
         }
         _=Read(destination);
+    }
+    static FileStream LockSave(string source)
+    {
+        try{return File.Exists(Path.Combine(source,"session.lock"))?new FileStream(Path.Combine(source,"session.lock"),FileMode.Open,FileAccess.Read,FileShare.None):File.Open(Path.Combine(source,"level.dat"),FileMode.Open,FileAccess.Read,FileShare.Read);}
+        catch(IOException ex)when((ex.HResult&0xffff) is 32 or 33){throw new IOException("This world is currently open in Minecraft or on a server. Close that world before importing it.",ex);}
     }
     static IEnumerable<string> SafeFiles(string root)
     {

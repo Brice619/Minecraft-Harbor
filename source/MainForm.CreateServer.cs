@@ -59,8 +59,8 @@ public sealed partial class MainForm
     }
     Label CreationIdentity(int y)
     {
-        var card=MCard(y,65);card.Draw=(g,w,h)=>{HarborTheme.Card(g,new RectangleF(0,0,w,h));HarborTheme.Icon(g,"cube",23,17,31,Ink);};
-        var title=MLabel(card,createName,70,8,MWidth-95,30,16,true);MLabel(card,createPack==null?"Vanilla · Version: "+createVersion!.Id:createPack.Source.Name+" · "+createPack.Source.PackVersion+" · Minecraft "+createPack.Source.MinecraftVersion,70,37,MWidth-95,24,11);return title;
+        var card=MCard(y,65);IdentityArtwork(card,createPack==null?null:PackLogo,createPack?.Project);int x=createPack==null?70:85;
+        var title=MLabel(card,createName,x,8,MWidth-x-25,30,16,true);MLabel(card,createPack==null?"Vanilla · Version: "+createVersion!.Id:createPack.Source.Name+" · "+createPack.Source.PackVersion+" · Minecraft "+createPack.Source.MinecraftVersion,x,37,MWidth-x-25,24,11);return title;
     }
     void RenderCreateSettings()
     {
@@ -69,7 +69,7 @@ public sealed partial class MainForm
         var name=new TextBox{Text=createName,MaxLength=90};var world=new TextBox{Text=createSettings.WorldName,MaxLength=90};
         name.TextChanged+=(_,_)=>{createName=name.Text;caption.Text=createName;};world.TextChanged+=(_,_)=>createSettings.WorldName=world.Text;
         void Row(string label,string description,Control control,int y){MLabel(card,label,25,y,x-45,24,12,true);MLabel(card,description,25,y+24,x-45,22,10).ForeColor=Muted;card.Controls.Add(control);MBounds(control,x,y+6,w-x-25,38);}
-        Row("Server Name","A name to identify your server.",new HarborInputFrame(name),14);Row("World Name","The name for your server's world.",new HarborInputFrame(world),14+step);
+        Row("Server Name","A name to identify your server.",new HarborInputFrame(name),14);Row("World Name",createPack?.World==null?"Name a new world or choose an existing save.":"Selected save: "+createPack.World.Name,createPack==null?new HarborInputFrame(world):WorldNameField(world,w-x-25,()=>OpenWorldPicker(true)),14+step);
         HarborDropdown Number(int value,int max,int step,string unit,Action<int> change){var d=new HarborDropdown();foreach(int n in SystemMemory.Choices(max,step))d.Items.Add(new NumberOption(n,unit,false));d.SelectedItem=d.Items.Cast<NumberOption>().First(o=>o.Value==value);d.SelectedIndexChanged+=(_,_)=>change(((NumberOption)d.SelectedItem!).Value);return d;}
         Row("RAM Amount",$"{SystemMemory.InstalledGB} GB installed on this PC.",Number(createSettings.MemoryGB,Settings.MaxMemoryGB,8," GB",n=>createSettings.MemoryGB=n),14+step*2);
         Row("Max Player Count","The maximum number of players that can join.",Number(createSettings.MaxPlayers,50,5,"",n=>createSettings.MaxPlayers=n),14+step*3);
@@ -132,8 +132,8 @@ public sealed partial class MainForm
     SetupProgressPanel RenderSetupLoading(string name,string version,string kind,Action cancel)
     {
         CreationHeading("Creating Your Server","Please wait while we set up your new "+kind+" server.","Server Settings",cancel);
-        var identity=MCard(155,65);identity.Draw=(g,w,h)=>{HarborTheme.Card(g,new RectangleF(0,0,w,h));HarborTheme.Icon(g,"cube",23,17,31,Ink);};
-        MLabel(identity,name,70,8,MWidth-95,30,16,true);MLabel(identity,"Version: "+version,70,37,MWidth-95,24,11);
+        var identity=MCard(155,65);IdentityArtwork(identity,createPack==null?null:PackLogo,createPack?.Project);
+        int identityX=createPack==null?70:85;MLabel(identity,name,identityX,8,MWidth-identityX-25,30,16,true);MLabel(identity,"Version: "+version,identityX,37,MWidth-identityX-25,24,11);
         int height=Math.Clamp(management.ClientSize.Height*96/management.DeviceDpi-307,310,410);
         var panel=new SetupProgressPanel{Progress=Volatile.Read(ref setupState),AccessibleName="Server setup progress"};management.Controls.Add(panel);MBounds(panel,0,234,MWidth,height);
         int bottom=247+height;var cancelButton=MButton(management,"Cancel",MWidth-320,bottom,125,cancel);var create=MButton(management,"Create Server",MWidth-183,bottom,183,()=>{},true);create.Enabled=false;
@@ -141,7 +141,8 @@ public sealed partial class MainForm
         void LayoutLoading(object? sender,EventArgs e){
             if(panel.IsDisposed)return;int available=management.ClientSize.Height*96/management.DeviceDpi;bool compact=available<610;int top=compact?180:234,h=Math.Clamp(available-top-72,288,410);var offset=management.AutoScrollPosition;management.AutoScrollPosition=Point.Empty;
             var headings=management.Controls.OfType<Label>().ToArray();MBounds(headings[0],0,compact?34:50,MWidth,compact?50:62);MBounds(headings[1],0,compact?80:111,MWidth,compact?30:35);MBounds(identity,0,compact?112:155,MWidth,compact?55:65);
-            var captions=identity.Controls.OfType<Label>().ToArray();MBounds(captions[0],70,compact?5:8,MWidth-95,compact?27:30);MBounds(captions[1],70,compact?31:37,MWidth-95,compact?22:24);
+            var captions=identity.Controls.OfType<Label>().ToArray();MBounds(captions[0],identityX,compact?5:8,MWidth-identityX-25,compact?27:30);MBounds(captions[1],identityX,compact?31:37,MWidth-identityX-25,compact?22:24);
+            foreach(var art in identity.Controls.OfType<PictureBox>())MBounds(art,14,compact?5:8,60,compact?45:49);
             MBounds(panel,0,top,MWidth,h);MBounds(cancelButton,MWidth-320,top+h+13,125,44);MBounds(create,MWidth-183,top+h+13,183,44);management.AutoScrollMinSize=new Size(0,management.LogicalToDeviceUnits(top+h+72));if(offset.Y<0)management.AutoScrollPosition=new Point(0,-offset.Y);
         }
         management.SizeChanged+=LayoutLoading;panel.Disposed+=(_,_)=>management.SizeChanged-=LayoutLoading;

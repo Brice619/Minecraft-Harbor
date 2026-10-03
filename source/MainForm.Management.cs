@@ -37,7 +37,7 @@ public sealed partial class MainForm
     }
     void RenderServerList()
     {
-        ClearManagement();editingServer=null;editingConfig=null;
+        ClearManagement();editingServer=null;editingConfig=null;editingDiskWorld=null;
         MHeading("Server Management","View, edit, and manage all of your saved servers.");
         var create=MButton(management,"Create New Server",MWidth-252,12,252,BeginCreateServer,true,"plus");create.Anchor=AnchorStyles.Top|AnchorStyles.Right;
         int y=163;
@@ -67,7 +67,7 @@ public sealed partial class MainForm
     }
     void OpenServerEditor(ServerProfile profile)
     {
-        draftServerName="";editingServer=profile;editingConfig=server.ReadProfileSettings(profile);TransitionManagement(RenderServerEditor);
+        draftServerName="";editingDiskWorld=null;editingServer=profile;editingConfig=server.ReadProfileSettings(profile);TransitionManagement(RenderServerEditor);
     }
     void CaptureServerDraft()
     {
@@ -84,7 +84,7 @@ public sealed partial class MainForm
         MLabel(card,ServerCaption(profile,draftServerName),105,22,w-130,40,22,true);
         MLabel(card,"Configure your server settings below.",105,67,w-130,28,12);
         editServerName=new TextBox{Text=draftServerName.Length>0?draftServerName:profile.DisplayName,MaxLength=90};editWorldName=new TextBox{Text=cfg.WorldName,MaxLength=90};
-        void TextRow(string label,TextBox box,int y){MLabel(card,label,105,y+5,180,29);var frame=new HarborInputFrame(box);card.Controls.Add(frame);MBounds(frame,285,y,w-313,36);frame.Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right;}
+        void TextRow(string label,TextBox box,int y){MLabel(card,label,105,y+5,180,29);Control frame=label=="World Name"&&profile.Loader!="vanilla"?WorldNameField(box,w-313,()=>OpenWorldPicker(false)):new HarborInputFrame(box);card.Controls.Add(frame);MBounds(frame,285,y,w-313,36);frame.Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right;}
         TextRow("Server Name",editServerName,100);TextRow("World Name",editWorldName,144);
         HarborDropdown Number(string label,int value,int max,int step,int y,string unit=""){
             var n=new HarborDropdown{Font=new Font("Segoe UI",12),AccessibleName=label};
@@ -96,9 +96,10 @@ public sealed partial class MainForm
         editRam=Number("RAM Amount",cfg.MemoryGB,Settings.MaxMemoryGB,8,188," GB");editSlots=Number("Player Count",cfg.MaxPlayers,50,5,232);editView=Number("View Distance",cfg.ViewDistance,30,5,276," chunks");editSimulation=Number("Simulation Distance",cfg.SimulationDistance,32,4,320," chunks");
         tips.SetToolTip(editRam,$"{SystemMemory.InstalledGB} GB installed on this PC");
         MButton(card,"Delete Server",24,388,176,()=>DeleteManagedServer(profile),glyph:"trash",danger:true);
-        MButton(card,"Edit Game Settings",225,388,230,()=>{CaptureServerDraft();draftServerName=editServerName.Text;gameDraftProperties=null;gameDraftRules=null;showMoreGameSettings=false;TransitionManagement(RenderGameSettings);},glyph:"settings");
+        var editGame=MButton(card,"Edit Game Settings",225,388,230,()=>{CaptureServerDraft();draftServerName=editServerName.Text;gameDraftProperties=null;gameDraftRules=null;showMoreGameSettings=false;TransitionManagement(RenderGameSettings);},glyph:"settings");
+        editGame.Enabled=editingDiskWorld==null&&cfg.WorldFolder==server.SelectedWorldFolder(profile);if(!editGame.Enabled)tips.SetToolTip(editGame,"Save the world selection before editing game settings.");
         MButton(card,"Cancel",w-290,388,115,()=>{draftServerName="";TransitionManagement(RenderServerList);});
-        MButton(card,"Save Changes",w-163,388,140,async()=>await Run(()=>{CaptureServerDraft();server.SaveProfile(profile,cfg,editServerName.Text);draftServerName="";TransitionManagement(RenderServerList);return Task.CompletedTask;}),true);
+        MButton(card,"Save Changes",w-163,388,140,async()=>await Run(async()=>{CaptureServerDraft();await server.SaveProfileWorldAsync(profile,cfg,editServerName.Text,editingDiskWorld);draftServerName="";TransitionManagement(RenderServerList);}),true);
         foreach(var button in card.Controls.OfType<HarborButton>().Where(b=>b.Text is "Cancel" or "Save Changes"))button.Anchor=AnchorStyles.Top|AnchorStyles.Right;
         management.AutoScrollMinSize=new Size(0,management.LogicalToDeviceUnits(615));
     }

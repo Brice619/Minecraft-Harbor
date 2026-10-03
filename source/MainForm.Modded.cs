@@ -10,7 +10,7 @@ public sealed partial class MainForm
     string packQuery="",modQuery="";
     int packSort=2,packPage,modSort=2,modPage;
     bool includedModsOnly;
-    bool addingMod;
+    bool addingMod,selectingInstalledPack;
     string? selectedConfigFile;
     readonly Dictionary<PackConfigValue,Control> packConfigInputs=new();
     sealed class PageCancellation:IDisposable
@@ -28,9 +28,18 @@ public sealed partial class MainForm
     }
     void ModpackIdentity(string name,string detail,int y=155,string? image=null)
     {
-        var card=MCard(y,65);card.Draw=(g,w,h)=>{HarborTheme.Card(g,new RectangleF(0,0,w,h));if(string.IsNullOrEmpty(image)||!File.Exists(image))HarborTheme.Icon(g,"cube",23,17,31,Ink);};
-        if(!string.IsNullOrEmpty(image)&&File.Exists(image)){var art=new PictureBox{SizeMode=PictureBoxSizeMode.Zoom};using(var source=Image.FromFile(image))art.Image=new Bitmap(source);art.Disposed+=(_,_)=>art.Image?.Dispose();card.Controls.Add(art);MBounds(art,14,8,60,49);}
+        var card=MCard(y,65);IdentityArtwork(card,image,createPack?.Project);
         MLabel(card,name,85,8,MWidth-105,30,15,true);MLabel(card,detail,85,37,MWidth-105,24,11);
+    }
+    void IdentityArtwork(PaintedPanel card,string? image,CfProject? project)
+    {
+        card.Draw=(g,w,h)=>{HarborTheme.Card(g,new RectangleF(0,0,w,h));if(string.IsNullOrEmpty(image))HarborTheme.Icon(g,"cube",23,17,31,Ink);};
+        if(!string.IsNullOrEmpty(image)){
+            var art=new PictureBox{SizeMode=PictureBoxSizeMode.Zoom,AccessibleName=(project?.Name??"Modpack")+" artwork"};art.Disposed+=(_,_)=>art.Image?.Dispose();card.Controls.Add(art);MBounds(art,14,8,60,49);
+            art.Paint+=(_,e)=>{if(art.Image==null)HarborTheme.Icon(e.Graphics,"cube",15,9,31,Ink);};
+            if(CatalogArtwork.Valid(image)){using var source=Image.FromFile(image);art.Image=new Bitmap(source);}
+            else if(project is {Logo.Length:>0})_=LoadCatalogArtwork(art,project);
+        }
     }
     string PackLogo=>createPack==null?"":Path.Combine(server.Root,"artwork","curseforge",createPack.Project.Id+".png");
     void RenderCreateModded()
@@ -53,7 +62,7 @@ public sealed partial class MainForm
     {
         var packs=CurseForgeProfiles.Discover(server.Library.Data.CurseForgeRoots).Where(p=>p.Name.Contains(packQuery,StringComparison.OrdinalIgnoreCase)).ToList();
         if(packSort==4)packs=packs.OrderBy(p=>p.Name).ToList();int width=(MWidth-32)/2;
-        for(int i=0;i<packs.Count;i++){var pack=packs[i];var project=new CfProject(pack.ProjectId,pack.Name,"Installed CurseForge profile", "","",0,new());var card=CatalogCard(list,project,i%2*(width+14),i/2*124,width,"Minecraft "+pack.MinecraftVersion+" · "+pack.Loader,"Select",()=>OpenInstalledPack(pack));}
+        for(int i=0;i<packs.Count;i++){var pack=packs[i];var project=new CfProject(pack.ProjectId,pack.Name,"Installed CurseForge profile",pack.Logo,pack.Website,0,new());var card=CatalogCard(list,project,i%2*(width+14),i/2*124,width,"Minecraft "+pack.MinecraftVersion+" · "+pack.Loader,"Select",()=>OpenInstalledPack(pack));}
         ((PaintedPanel)list).AutoScrollMinSize=new Size(0,management.LogicalToDeviceUnits(Math.Max(65,(packs.Count+1)/2*124)));
         if(packs.Count==0)MLabel(list,"No installed packs match your search.",20,15,MWidth-40,45,15);CatalogFooter(list.Bottom*96/management.DeviceDpi+14,false,0,0,()=>{});
     }
@@ -124,13 +133,37 @@ public sealed partial class MainForm
     }
     async void OpenInstalledPack(CurseForgeProfile pack)
     {
+        if(selectingInstalledPack)return;selectingInstalledPack=true;
         try{
-            string? archive=Directory.Exists(Path.Combine(server.Root,"downloads"))?Directory.EnumerateFiles(Path.Combine(server.Root,"downloads"),"*.zip",SearchOption.AllDirectories).FirstOrDefault(f=>Path.GetFileName(f).StartsWith(pack.ServerFileId+"-")):null;
+            var prepared=InstalledPackSelection.FindPrepared(server.Root,server.Library,pack);
+            string? archive=prepared?.Directory??InstalledPackSelection.FindArchive(server.Root,pack);
+            if(archive==null&&Catalog.Connected&&pack.ProjectId>0&&pack.ServerFileId>0){
+                TransitionManagement(()=>{CreationHeading("Preparing Modpack","Finding this pack's matching server files…","Choose a Modpack",()=>TransitionManagement(RenderCreateModded));var status=MLabel(management,"Finding server files…",20,180,MWidth-40,60,15);_=DownloadInstalledPack(pack,status);});return;
+            }
             if(archive==null){using var picker=new OpenFileDialog{Title="Choose the matching server ZIP for "+pack.Name,Filter="Server packs (*.zip)|*.zip"};if(picker.ShowDialog(this)!=DialogResult.OK)return;archive=picker.FileName;}
-            var project=new CfProject(pack.ProjectId,pack.Name,"Installed CurseForge profile","","",0,new());createPack=new(){Project=project,Source=pack,Archive=archive,Release=new(pack.ServerFileId,pack.ProjectId,Path.GetFileName(archive),pack.PackVersion,new FileInfo(archive).Length,null,new(){pack.MinecraftVersion,pack.Loader},pack.ServerFileId,new(),null),Config=PackConfiguration.Discover(archive)};
-            using var zip=ZipFile.OpenRead(archive);int id=-1;foreach(var entry in zip.Entries.Where(e=>e.FullName.Replace('\\','/').Contains("mods/")&&e.Name.EndsWith(".jar",StringComparison.OrdinalIgnoreCase))){string name=Path.GetFileNameWithoutExtension(entry.Name);createPack.Mods[id]=new(id,name,"Included in the server pack","","",0,new());createPack.ModFiles[id]=new(id,id,entry.Name,name,entry.Length,null,new(){pack.MinecraftVersion,pack.Loader},0,new(),null);id--;}
-            PrepareModdedDraft();TransitionManagement(RenderModpackChoice);await Task.CompletedTask;
-        }catch(Exception ex){MessageBox.Show(this,ex.Message,"Minecraft Harbor");}
+            createPack=await Task.Run(()=>ReadInstalledPack(pack,archive,prepared));
+            PrepareModdedDraft();while(managementTransition)await Task.Delay(30);TransitionManagement(RenderModpackChoice);
+        }catch(Exception ex){MessageBox.Show(this,ex.Message,"Minecraft Harbor");}finally{selectingInstalledPack=false;}
+    }
+    async Task DownloadInstalledPack(CurseForgeProfile pack,Label status)
+    {
+        using var cancel=new PageCancellation(status,TimeSpan.FromMinutes(30));
+        MButton(management,"Cancel",MWidth-150,275,150,()=>TransitionManagement(RenderCreateModded));
+        try{
+            string archive=await PackInstaller.DownloadServerPack(server.Root,pack,s=>{if(!status.IsDisposed)status.Text=s;},cancel.Token);
+            if(status.IsDisposed)return;var draft=await Task.Run(()=>ReadInstalledPack(pack,archive,null),cancel.Token);if(status.IsDisposed)return;createPack=draft;
+            PrepareModdedDraft();while(managementTransition)await Task.Delay(30);TransitionManagement(RenderModpackChoice);
+        }catch(Exception ex){if(!status.IsDisposed){status.Text=ex is OperationCanceledException?"Download cancelled.":ex.Message;MButton(management,"Choose Server ZIP",20,275,190,ImportServerZip);}}
+    }
+    ModpackDraft ReadInstalledPack(CurseForgeProfile pack,string archive,PreparedPackSource? prepared)
+    {
+        var project=new CfProject(pack.ProjectId,pack.Name,"Installed CurseForge profile",pack.Logo,pack.Website,0,new());
+        var draft=new ModpackDraft{Project=project,Source=pack,Archive=archive,Prepared=prepared,Release=new(pack.ServerFileId,pack.ProjectId,prepared==null?Path.GetFileName(archive):pack.Name,pack.PackVersion,prepared==null?new FileInfo(archive).Length:0,null,new(){pack.MinecraftVersion,pack.Loader},pack.ServerFileId,new(),null),Config=PackConfiguration.Discover(archive)};
+        int id=-1;
+        void Mod(string filename,long length){string name=Path.GetFileNameWithoutExtension(filename);draft.Mods[id]=new(id,name,"Included in the server pack","","",0,new());draft.ModFiles[id]=new(id,id,filename,name,length,null,new(){pack.MinecraftVersion,pack.Loader},0,new(),null);id--;}
+        if(prepared!=null){foreach(string file in Directory.EnumerateFiles(Path.Combine(archive,"mods"),"*.jar"))Mod(Path.GetFileName(file),new FileInfo(file).Length);}
+        else{using var zip=ZipFile.OpenRead(archive);foreach(var entry in zip.Entries.Where(e=>e.FullName.Replace('\\','/').Contains("mods/")&&e.Name.EndsWith(".jar",StringComparison.OrdinalIgnoreCase)))Mod(entry.Name,entry.Length);}
+        return draft;
     }
     void ImportServerZip()
     {
@@ -156,14 +189,18 @@ public sealed partial class MainForm
     void SetCreationDefaults()
     {
         createProperties=VanillaCatalog.Properties(createVersion!);createRules=VanillaCatalog.Rules(createVersion!);if(createPack==null)return;
-        using var zip=ZipFile.OpenRead(createPack.Archive);var entry=zip.Entries.FirstOrDefault(e=>e.Name=="server.properties");if(entry is {Length:<1048576}){using var reader=new StreamReader(entry.Open());foreach(var line in reader.ReadToEnd().Split('\n')){int i=line.IndexOf('=');if(i>0&&createProperties.ContainsKey(line[..i]))createProperties[line[..i]]=line[(i+1)..].TrimEnd('\r');}}
+        string defaults="";
+        if(createPack.Prepared!=null){string file=Path.Combine(createPack.Prepared.Directory,"server.properties");if(File.Exists(file)&&new FileInfo(file).Length<1048576)defaults=File.ReadAllText(file);}
+        else{using var zip=ZipFile.OpenRead(createPack.Archive);var entry=zip.Entries.FirstOrDefault(e=>e.Name=="server.properties");if(entry is {Length:<1048576}){using var reader=new StreamReader(entry.Open());defaults=reader.ReadToEnd();}}
+        foreach(var line in defaults.Split('\n')){int i=line.IndexOf('=');if(i>0&&createProperties.ContainsKey(line[..i]))createProperties[line[..i]]=line[(i+1)..].TrimEnd('\r');}
         foreach(var key in new[]{"difficulty","gamemode"})if(int.TryParse(createProperties[key],out var n)&&n>=0&&n<4)createProperties[key]=(key=="difficulty"?new[]{"peaceful","easy","normal","hard"}:new[]{"survival","creative","adventure","spectator"})[n];
+        if(createPack.World!=null)foreach(var rule in PackWorlds.Rules(createPack.World.Path))if(createRules.ContainsKey(rule.Key))createRules[rule.Key]=rule.Value;
     }
     void RenderModpackChoice()
     {
         var pack=createPack!;CreationHeading(pack.Source.Name,"How would you like to use this modpack?","Choose a Modpack",()=>TransitionManagement(RenderCreateModded));ModpackIdentity("Selected Modpack",pack.Source.Name+" · "+pack.Source.PackVersion,155,PackLogo);
         int width=(MWidth-18)/2,height=Math.Clamp(management.ClientSize.Height*96/management.DeviceDpi-309,245,450);
-        var asIs=new CreationTile("Download As Is","Use the published server pack with its original mods.",Path.Combine(server.Root,"artwork","create","modded.png"));management.Controls.Add(asIs);MBounds(asIs,0,234,width,height);asIs.Click+=(_,_)=>{customizePack=false;pack.Removed.Clear();pack.Added.Clear();pack.LocalMods.Clear();foreach(var config in pack.Config)config.Value=config.Original;TransitionManagement(RenderCreateSettings);};
+        var asIs=new CreationTile("Use As Is",pack.Prepared==null?"Use the published server pack with its original mods.":"Use this pack with its existing server mods and configuration.",Path.Combine(server.Root,"artwork","create","modded.png"));management.Controls.Add(asIs);MBounds(asIs,0,234,width,height);asIs.Click+=(_,_)=>{customizePack=false;pack.Removed.Clear();pack.Added.Clear();pack.LocalMods.Clear();foreach(var config in pack.Config)config.Value=config.Original;TransitionManagement(RenderCreateSettings);};
         var customize=new CreationTile("Customize Further","Adjust the included mods and add more before setup.",Path.Combine(server.Root,"artwork","create","customize.png"),"settings");management.Controls.Add(customize);MBounds(customize,width+18,234,width,height);customize.Click+=(_,_)=>OpenCustomize();
         MButton(management,"Cancel",MWidth-140,247+height,140,()=>TransitionManagement(RenderServerList));management.AutoScrollMinSize=new Size(0,management.LogicalToDeviceUnits(height+309));
     }

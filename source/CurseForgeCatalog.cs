@@ -31,6 +31,8 @@ internal sealed class ModpackDraft
     internal required CfFile Release;
     internal required CurseForgeProfile Source;
     internal required string Archive;
+    internal PreparedPackSource? Prepared;
+    internal PackWorld? World;
     internal List<CfIncluded> Included=new();
     internal Dictionary<long,CfProject> Mods=new();
     internal Dictionary<long,CfFile> ModFiles=new();

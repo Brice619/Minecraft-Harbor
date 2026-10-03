@@ -93,7 +93,16 @@ internal sealed class ModrinthCatalog
     }
     internal async Task IdentifyIncluded(ModpackDraft draft,CancellationToken token)
     {
-        using var zip=ZipFile.OpenRead(draft.Archive);var entries=zip.Entries.Where(e=>e.FullName.StartsWith("mods/",StringComparison.OrdinalIgnoreCase)&&e.Name.EndsWith(".jar",StringComparison.OrdinalIgnoreCase)).ToList();var hashes=new Dictionary<string,ZipArchiveEntry>();foreach(var entry in entries){using var stream=entry.Open();hashes[Convert.ToHexString(await SHA1.HashDataAsync(stream,token)).ToLowerInvariant()]=entry;}
+        var hashes=new Dictionary<string,(string Name,long Length)>();
+        if(draft.Prepared!=null){
+            foreach(string file in Directory.EnumerateFiles(Path.Combine(draft.Prepared.Directory,"mods"),"*.jar")){
+                if((File.GetAttributes(file)&FileAttributes.ReparsePoint)!=0)throw new InvalidDataException("Linked mod files are not supported.");
+                using var stream=File.OpenRead(file);hashes[Convert.ToHexString(await SHA1.HashDataAsync(stream,token)).ToLowerInvariant()]=(Path.GetFileName(file),stream.Length);
+            }
+        }else{
+            using var zip=ZipFile.OpenRead(draft.Archive);
+            foreach(var entry in zip.Entries.Where(e=>e.FullName.Replace('\\','/').Contains("mods/")&&e.Name.EndsWith(".jar",StringComparison.OrdinalIgnoreCase))){using var stream=entry.Open();hashes[Convert.ToHexString(await SHA1.HashDataAsync(stream,token)).ToLowerInvariant()]=(entry.Name,entry.Length);}
+        }
         var versions=new Dictionary<string,CfFile>();foreach(var batch in hashes.Keys.Chunk(100)){using var json=await Request("version_files",token,new{hashes=batch,algorithm="sha1"});foreach(var item in json.RootElement.EnumerateObject()){var file=VersionInfo(item.Value);if(hashes.TryGetValue(item.Name,out var entry))versions[item.Name]=file with{Name=entry.Name,Length=entry.Length,Sha1=item.Name};}}
         var projects=await Projects(versions.Values.Select(v=>v.ModrinthProject),token);var previous=draft.ModFiles.Values.GroupBy(f=>f.Name,StringComparer.OrdinalIgnoreCase).ToDictionary(g=>g.Key,g=>g.First(),StringComparer.OrdinalIgnoreCase);var previousProjects=new Dictionary<long,CfProject>(draft.Mods);draft.ModFiles.Clear();draft.Mods.Clear();
         int local=-1;foreach(var pair in hashes){if(versions.TryGetValue(pair.Key,out var f)&&projects.TryGetValue(f.ModId,out var p)&&!draft.ModFiles.ContainsKey(p.Id)){draft.ModFiles[p.Id]=f;draft.Mods[p.Id]=p;if(previous.TryGetValue(f.Name,out var old))draft.Aliases[old.ModId]=p.Id;}else{var e=pair.Value;if(previous.TryGetValue(e.Name,out var old)&&previousProjects.TryGetValue(old.ModId,out var oldProject)){draft.ModFiles[old.ModId]=old;draft.Mods[old.ModId]=oldProject;}else{while(draft.ModFiles.ContainsKey(local))local--;draft.Mods[local]=new(local,Path.GetFileNameWithoutExtension(e.Name),"Included in the server pack","","",0,new());draft.ModFiles[local]=new(local,local,e.Name,e.Name,e.Length,null,new(){draft.Source.MinecraftVersion,draft.Source.Loader},0,new(),pair.Key);local--;}}}draft.MetadataResolved=true;

@@ -60,6 +60,8 @@ public sealed partial class MainForm : Form
         FormClosed+=(_,_)=>{activationCancellation.Cancel();artworkCancellation?.Cancel();performance.Save();timer.Stop();tray.Dispose();setup.Dispose();nightScene.Dispose();wordmark.Dispose();packArt?.Dispose();SetThreadExecutionState(0x80000000);};
         Shown+=async(_,_)=>{
             LayoutDashboard();MaximizedBounds=Screen.FromControl(this).WorkingArea;
+            if(visualTestReport?.StartsWith("__world_picker_test__:")==true){await VerifyWorldPicker(visualTestReport["__world_picker_test__:".Length..]);return;}
+            if(visualTestReport?.StartsWith("__installed_pack_test__:")==true){await VerifyInstalledPack(visualTestReport[24..]);return;}
             if(visualTestReport=="__app_settings_demo__"){ShowPage("Settings");return;}
             if(visualTestReport?.StartsWith("__app_settings_test__:")==true){await VerifyAppSettings(visualTestReport[22..]);return;}
             if(playersTestReport=="__players_demo__"){ShowPage("Players");return;}

@@ -25,7 +25,28 @@ public sealed partial class ServerManager
     }
     public void SaveProfile(ServerProfile profile,Settings config,string name)
     {
-        RequireEditable(profile);CheckConfig(config);SystemMemory.Validate(config.MemoryGB);name=WorldName(name);config.WorldName=WorldName(config.WorldName);
+        RequireEditable(profile);SaveProfileCore(profile,config,name);
+    }
+    internal Task SaveProfileWorldAsync(ServerProfile profile,Settings config,string name,PackWorld? selected)
+    {
+        RequireEditable(profile);
+        if(selected==null){SaveProfileCore(profile,config,name);return Task.CompletedTask;}
+        CheckConfig(config);SystemMemory.Validate(config.MemoryGB);name=WorldName(name);config.WorldName=WorldName(config.WorldName);
+        return Perform("Copying the selected world…",async()=>{
+            RequireStopped();var chosen=PackWorlds.Qualify(selected.Path,PackWorlds.Pack(profile),Library);
+            if(chosen.ProfileId==profile.Id){config.WorldFolder=chosen.Folder;SaveProfileCore(profile,config,name);return;}
+            var info=WorldImport.Read(chosen.Path);var world=new WorldEntry{Folder="world-"+Guid.NewGuid().ToString("N"),Name=info.Name};
+            string root=Library.ProfileRoot(profile),stage=Path.Combine(root,"imports",world.Folder);
+            await Task.Run(()=>WorldImport.Copy(chosen.Path,stage,info,s=>Activity=s));
+            Directory.Move(stage,Path.Combine(root,"server",world.Folder));profile.Worlds.Add(world);string previous=config.WorldFolder;
+            try{config.WorldFolder=world.Folder;SaveProfileCore(profile,config,name);}catch{config.WorldFolder=previous;profile.Worlds.Remove(world);throw;}
+            Log("Selected "+config.WorldName+" for "+profile.DisplayName+". The source save is unchanged.");
+        });
+    }
+    void SaveProfileCore(ServerProfile profile,Settings config,string name)
+    {
+        if(!Library.Data.Profiles.Contains(profile))throw new InvalidOperationException("This server is not in your library.");
+        CheckConfig(config);SystemMemory.Validate(config.MemoryGB);name=WorldName(name);config.WorldName=WorldName(config.WorldName);
         var world=profile.Worlds.Single(w=>w.Folder==config.WorldFolder);string root=Library.ProfileRoot(profile);
         var metadata=Path.Combine(root,"server",world.Folder,"level.dat");
         if(File.Exists(metadata)&&world.Name!=config.WorldName)new WorldMetadata(metadata).Save(metadata,config.WorldName,new());

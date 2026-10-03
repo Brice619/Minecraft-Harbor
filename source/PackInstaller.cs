@@ -9,7 +9,7 @@ namespace MinecraftHarbor;
 public static class PackInstaller
 {
     static readonly HttpClient Http=new(){Timeout=Timeout.InfiniteTimeSpan};
-    public static async Task<ServerProfile> PrepareAsync(string root,CurseForgeProfile source,Action<string> progress,CancellationToken token,string? serverZip=null,Action<SetupProgress>? setup=null)
+    public static async Task<ServerProfile> PrepareAsync(string root,CurseForgeProfile source,Action<string> progress,CancellationToken token,string? serverZip=null,Action<SetupProgress>? setup=null,PreparedPackSource? prepared=null)
     {
         if(source.Loader is not ("neoforge" or "forge" or "fabric"))throw new InvalidDataException("Harbor currently supports NeoForge, Forge and Fabric server packs.");
         if(!Regex.IsMatch(source.LoaderVersion,@"^[a-zA-Z0-9.\-+_]+$")||!Regex.IsMatch(source.MinecraftVersion,@"^[a-zA-Z0-9.\-+_]+$"))throw new InvalidDataException("Invalid game or loader version in the CurseForge profile.");
@@ -17,11 +17,18 @@ public static class PackInstaller
         var stage=Path.Combine(root,"profiles",".preparing-"+profile.Id);Directory.CreateDirectory(stage);
         try {
             setup?.Invoke(new(0,0,"Downloading and preparing "+source.Name+"…",WorldDeferred:true));
-            string archive=serverZip??await DownloadServerPack(root,source,progress,token);
             var server=Path.Combine(stage,"server");
+            string template="",receipt="";
+            if(prepared!=null){
+                if(!InstalledPackSelection.Matches(prepared.Profile,source))throw new InvalidDataException("The prepared server does not match this pack release.");
+                progress("Using the prepared server files for this pack…");
+                await Task.Run(()=>InstalledPackSelection.CopyPack(prepared,server,token),token);
+                profile.LaunchFile=prepared.Profile.LaunchFile;profile.UsesArgumentFile=prepared.Profile.UsesArgumentFile;
+            }else{
+            string archive=serverZip??await DownloadServerPack(root,source,progress,token);
             using var archiveStream=File.OpenRead(archive);string archiveHash=Convert.ToHexString(await SHA256.HashDataAsync(archiveStream,token));
-            string template=Path.Combine(root,"pack-cache",source.ProjectId+"-"+source.ServerFileId+"-"+archiveHash+"-"+source.Loader+"-"+source.LoaderVersion);
-            string receipt=Path.Combine(template,"template.json");
+            template=Path.Combine(root,"pack-cache",source.ProjectId+"-"+source.ServerFileId+"-"+archiveHash+"-"+source.Loader+"-"+source.LoaderVersion);
+            receipt=Path.Combine(template,"template.json");
             if(File.Exists(receipt)){
                 var saved=JsonSerializer.Deserialize<ServerProfile>(File.ReadAllText(receipt))!;
                 if(saved.Loader!=source.Loader||saved.LoaderVersion!=source.LoaderVersion||saved.MinecraftVersion!=source.MinecraftVersion)throw new InvalidDataException("The cached pack does not match this release.");
@@ -31,11 +38,12 @@ public static class PackInstaller
                 progress("Unpacking the server files…");var extracted=Path.Combine(stage,"unpacked");await Task.Run(()=>Extract(archive,extracted,token),token);
                 string packRoot=FindPackRoot(extracted);await SetupFiles.FinishDirectory(packRoot,server,token);
             }
+            }
             if(!Directory.Exists(Path.Combine(server,"mods"))||!Directory.EnumerateFiles(Path.Combine(server,"mods"),"*.jar").Any())throw new InvalidDataException("This download does not contain a ready server mod list. Choose the pack author's server ZIP, not a client export or downloader-only package.");
             // The version comes from the chosen installed client; a conflicting server script is rejected.
             ValidateScriptVersions(server,source);
             profile.JavaPath=await EnsureJava(root,JavaMajor(source.MinecraftVersion),progress,token);
-            if(!File.Exists(receipt)){
+            if(prepared==null&&!File.Exists(receipt)){
                 await PrepareLoader(server,profile,progress,token);
                 string cacheStage=template+".building-"+Guid.NewGuid().ToString("N");await Task.Run(()=>CopyTree(server,Path.Combine(cacheStage,"server"),token),token);
                 ServerManager.WriteJson(Path.Combine(cacheStage,"template.json"),profile);Directory.CreateDirectory(Path.GetDirectoryName(template)!);await SetupFiles.FinishDirectory(cacheStage,template,token);
@@ -82,11 +90,12 @@ public static class PackInstaller
         if(candidates.Length==1&&!Path.GetFileName(candidates[0]).Equals("overrides",StringComparison.OrdinalIgnoreCase))return candidates[0];
         throw new InvalidDataException("Could not find the server's mods folder in this ZIP. Download the matching server pack from CurseForge.");
     }
-    static async Task<string> DownloadServerPack(string root,CurseForgeProfile source,Action<string> progress,CancellationToken token)
+    internal static async Task<string> DownloadServerPack(string root,CurseForgeProfile source,Action<string> progress,CancellationToken token)
     {
         if(source.ProjectId<=0||source.ServerFileId<=0)throw new InvalidDataException("This installed profile has no linked CurseForge server pack. Use Choose server ZIP to supply its matching server files.");
         var catalog=new CurseForgeCatalog(root);
-        if(!catalog.Connected){string cache=Path.Combine(root,"downloads");string? existing=Directory.Exists(cache)?Directory.EnumerateFiles(cache,source.ServerFileId+"-*.zip").FirstOrDefault():null;if(existing!=null){using var check=ZipFile.OpenRead(existing);progress("Using your downloaded server pack…");return existing;}throw new InvalidOperationException("Connect CurseForge for automatic downloads, or choose the matching server ZIP downloaded from its website.");}
+        string? existing=InstalledPackSelection.FindArchive(root,source);if(existing!=null){using var check=ZipFile.OpenRead(existing);progress("Using your downloaded server pack…");return existing;}
+        if(!catalog.Connected)throw new InvalidOperationException("Connect CurseForge for automatic downloads, or choose the matching server ZIP downloaded from its website.");
         progress("Finding this pack's matching CurseForge server download…");var file=await catalog.GetFile(source.ProjectId,source.ServerFileId,token);if(!file.Name.EndsWith(".zip",StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("The linked server pack is not a ZIP archive.");return await catalog.Download(file,token,progress);
     }
     public static async Task Download(string url,string target,long? expectedSize,Action<string> progress,CancellationToken token,string? sha256=null,Action<double>? fraction=null)

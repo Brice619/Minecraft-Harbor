@@ -68,6 +68,8 @@ public sealed class ServerLibrary
 
 public sealed record CurseForgeProfile(string Path,string Name,string PackVersion,string MinecraftVersion,string Loader,string LoaderVersion,long ProjectId,long ServerFileId)
 {
+    public string Logo {get;init;}="";
+    public string Website {get;init;}="";
     public override string ToString()=>Name+" · "+PackVersion+" · "+MinecraftVersion;
 }
 public static class CurseForgeProfiles
@@ -84,7 +86,7 @@ public static class CurseForgeProfiles
         if(version.Length==0)version="Custom profile";
         long.TryParse(Text(j,"installedModpack","addonID"),out var project);long.TryParse(Text(j,"installedModpack","installedFile","serverPackFileId"),out var server);
         if(name.Length==0||mc.Length==0)throw new InvalidDataException("This is not a complete CurseForge profile.");
-        return new(System.IO.Path.GetFullPath(folder),name,version,mc,loader[..dash].ToLowerInvariant(),loader[(dash+1)..],project,server);
+        return new(System.IO.Path.GetFullPath(folder),name,version,mc,loader[..dash].ToLowerInvariant(),loader[(dash+1)..],project,server){Logo=Text(j,"installedModpack","thumbnailUrl"),Website=Text(j,"installedModpack","webSiteURL")};
     }
     public static List<CurseForgeProfile> Discover(IEnumerable<string>? extraRoots=null)
     {

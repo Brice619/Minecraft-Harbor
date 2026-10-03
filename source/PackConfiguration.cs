@@ -13,11 +13,28 @@ internal static class PackConfiguration
 {
     internal static List<PackConfigValue> Discover(string archive)
     {
+        if(Directory.Exists(archive)){
+            var values=new List<PackConfigValue>();
+            foreach(string name in new[]{"config","defaultconfigs"}){
+                string folder=Path.Combine(archive,name);if(!Directory.Exists(folder))continue;
+                foreach(string file in SafeFiles(folder)){
+                    if(values.Count>=500)return values;if(new FileInfo(file).Length>512*1024)continue;
+                    try{values.AddRange(Parse(Path.GetRelativePath(archive,file).Replace('\\','/'),System.IO.File.ReadAllText(file)).Take(500-values.Count));}catch(JsonException){}
+                }
+            }
+            return values;
+        }
         using var zip=ZipFile.OpenRead(archive);var result=new List<PackConfigValue>();var root=zip.Entries.FirstOrDefault(e=>e.FullName.Replace('\\','/').Contains("mods/")&&e.Name.EndsWith(".jar"))?.FullName.Replace('\\','/');int mods=root?.IndexOf("mods/",StringComparison.Ordinal)??-1;string prefix=mods>0?root![..mods]:"";
         foreach(var entry in zip.Entries){string name=entry.FullName.Replace('\\','/');if(!name.StartsWith(prefix))continue;name=name[prefix.Length..];if(!(name.StartsWith("config/")||name.StartsWith("defaultconfigs/"))||entry.Length>512*1024||result.Count>=500)continue;
             if(name.Split('/').Any(p=>p is ".." or "."||p.Contains(':')))continue;using var reader=new StreamReader(entry.Open());string text=reader.ReadToEnd();
             try{result.AddRange(Parse(name,text).Take(500-result.Count));}catch(JsonException){}
         }return result;
+    }
+    static IEnumerable<string> SafeFiles(string folder)
+    {
+        if((System.IO.File.GetAttributes(folder)&FileAttributes.ReparsePoint)!=0)yield break;
+        foreach(string file in Directory.EnumerateFiles(folder))if((System.IO.File.GetAttributes(file)&FileAttributes.ReparsePoint)==0)yield return file;
+        foreach(string sub in Directory.EnumerateDirectories(folder))foreach(string file in SafeFiles(sub))yield return file;
     }
     internal static List<PackConfigValue> Parse(string file,string text)
     {

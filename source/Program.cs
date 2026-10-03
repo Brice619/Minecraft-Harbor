@@ -18,6 +18,9 @@ internal static class Program
         var root=args.Contains("--root")?Path.GetFullPath(args[Array.IndexOf(args,"--root")+1]):InstalledApp.DefaultRoot();
         try
         {
+            if(args.Contains("--world-picker-test")){PackWorldTests.Run(args[Array.IndexOf(args,"--world-picker-test")+1]).GetAwaiter().GetResult();return 0;}
+            if(args.Contains("--world-picker-live-test")){int i=Array.IndexOf(args,"--world-picker-live-test");PackWorldTests.Live(args[i+1],args[i+2],args[i+3]);return 0;}
+            if(args.Contains("--installed-pack-live-test")){int i=Array.IndexOf(args,"--installed-pack-live-test");InstalledPackTests.Live(args[i+1],args[i+2],args[i+3]).GetAwaiter().GetResult();return 0;}
             if(args.Contains("--fresh-install-test")){InstalledApp.VerifyFreshInstall(args[Array.IndexOf(args,"--fresh-install-test")+1]);return 0;}
             if(args.Contains("--pack-publish-test")){PackPublishTests.Run(args[Array.IndexOf(args,"--pack-publish-test")+1]).GetAwaiter().GetResult();return 0;}
             if(args.Contains("--lan-test")){LanTests.Run(args[Array.IndexOf(args,"--lan-test")+1]).GetAwaiter().GetResult();return 0;}
@@ -43,6 +46,8 @@ internal static class Program
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            if(args.Contains("--world-picker-ui-test")){PackWorldTests.Ui(args[Array.IndexOf(args,"--world-picker-ui-test")+1]);return 0;}
+            if(args.Contains("--installed-pack-ui-test")){InstalledPackTests.Ui(args[Array.IndexOf(args,"--installed-pack-ui-test")+1]);return 0;}
             if(args.Contains("--settings-ui-test")){AppSettingsTests.Run(args[Array.IndexOf(args,"--settings-ui-test")+1]);return 0;}
             if(args.Contains("--settings-demo")){AppSettingsTests.Run(args[Array.IndexOf(args,"--settings-demo")+1],true);return 0;}
             if(args.Contains("--players-ui-test")){PlayerTests.Ui(args[Array.IndexOf(args,"--players-ui-test")+1]);return 0;}
