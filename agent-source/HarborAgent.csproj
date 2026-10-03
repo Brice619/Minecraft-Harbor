@@ -9,6 +9,7 @@
     <Compile Include="../source/LanProtocol.cs" Link="LanProtocol.cs"/>
     <Compile Include="../source/PackSyncProtocol.cs" Link="PackSyncProtocol.cs"/>
     <PackageReference Include="System.Management" Version="10.0.0"/>
+    <EmbeddedResource Include="client-payload.zip" LogicalName="Harbor.ClientPayload.zip"/>
+    <EmbeddedResource Include="client-payload.sha256" LogicalName="Harbor.ClientPayload.sha256"/>
   </ItemGroup>
 </Project>
-

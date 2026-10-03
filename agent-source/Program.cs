@@ -6,7 +6,7 @@ internal static class Program
 {
     [STAThread] static int Main(string[] args)
     {
-        try{if(args.Length==2&&args[0]=="--shutdown-test"){UpdateTests.Shutdown(args[1]);return 0;}if(args.Length==2&&args[0]=="--shutdown-fixture"){Application.EnableVisualStyles();UpdateTests.Fixture(args[1]);return 0;}if(args.Length==2&&args[0]=="--loader-install-test"){LoaderUpdateTests.Install(args[1]).GetAwaiter().GetResult();return 0;}if(args.Length==2&&args[0]=="--self-test"){PackAgentTests.Run(args[1]).GetAwaiter().GetResult();return 0;}Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+        try{if(args.Length==2&&args[0]=="--runtime-check"){UpdateTests.RuntimeCheck(args[1]);return 0;}if(args.Length==2&&args[0]=="--shutdown-test"){UpdateTests.Shutdown(args[1]);return 0;}if(args.Length==2&&args[0]=="--shutdown-fixture"){Application.EnableVisualStyles();UpdateTests.Fixture(args[1]);return 0;}if(args.Length==2&&args[0]=="--loader-install-test"){LoaderUpdateTests.Install(args[1]).GetAwaiter().GetResult();return 0;}if(args.Length==2&&args[0]=="--self-test"){PackAgentTests.Run(args[1]).GetAwaiter().GetResult();return 0;}Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             if(args.Length==2&&args[0]=="--preview"){Application.Run(new ClientForm(args[1]));return 0;}
             if(Path.GetFileName(Environment.ProcessPath)!= "Minecraft Harbor Client.exe"){Application.Run(new InstallForm());return 0;}
             using var mutex=new Mutex(true,"Local\\MinecraftHarborClient",out bool first);if(!first){MessageBox.Show("Harbor Client is already open. Use its window to select and launch a pack.","Minecraft Harbor Client");return 0;}
@@ -76,11 +76,3 @@ internal sealed class ClientForm:Form
     }
     void SetButtons(bool enabled){pair.Enabled=other.Enabled=launch.Enabled=enabled;}
 }
-
-
-
-
-
-
-
-
