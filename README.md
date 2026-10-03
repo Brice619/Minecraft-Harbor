@@ -2,7 +2,7 @@
 
 Create and manage vanilla and modded Minecraft servers from one Windows app.
 
-[Download Minecraft Harbor 1.1](https://github.com/Brice619/Minecraft-Harbor/releases/tag/v1.1)
+[Download Minecraft Harbor 1.2](https://github.com/Brice619/Minecraft-Harbor/releases/tag/v1.2)
 
 ## Features
 
@@ -15,12 +15,14 @@ Create and manage vanilla and modded Minecraft servers from one Windows app.
 
 ## Install
 
-Download **Minecraft-Harbor-Setup-1.1.exe** from Releases and run the installer. Windows 10/11, 64-bit. The app runtime is included. Minecraft, Java server runtimes, and modpacks are prepared separately as needed. Read **README.txt** in the release for LAN setup instructions.
+Download **Minecraft-Harbor-Setup-1.2.exe** from Releases and run the installer. Windows 10/11, 64-bit. The app runtime is included. Minecraft, Java server runtimes, and modpacks are prepared separately as needed. Read **README.txt** in the release for LAN setup instructions.
 
 The release contains the application only. Private saves, accounts, modpacks, and user settings are not included.
 
-## 1.1 testing status
+## 1.2 update
 
-World selection, world import, installed-pack reuse, client synchronization, and installer checks are included in the release verification. The installers are unsigned.
+Harbor Client now installs the matching NeoForge version before launching a synced pack. Exit CurseForge before a loader update so it can reload the updated profile. Both installers detect existing installations and update them in place, preserving user data. The Connected PCs list keeps its panel background when refreshing.
+
+The official NeoForge installer and profile rollback were tested in isolated folders. Live joining-PC launch validation remains pending. The installers are unsigned.
 
 Minecraft is a trademark of Mojang Studios. Minecraft Harbor is an independent project.
