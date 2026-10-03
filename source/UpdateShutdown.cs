@@ -85,8 +85,14 @@ internal static class UpdateShutdown
             {
                 error=RmRegisterResources(session,0,null,(uint)registered.Count,registered.ToArray(),0,null);
                 if(error!=0)throw new IOException("Windows could not prepare CurseForge for the update ("+error+").");
-                // No force-shutdown flag: register only CurseForge, never Java or the server.
+                // Register only this session's CurseForge processes, never Minecraft, Java, or Harbor.
+                // Electron can refuse Restart Manager's normal shutdown (ERROR_FAIL_SHUTDOWN, 351).
+                // Ask it to close first, then let Windows finish closing those registered processes.
+                foreach(var process in processes)if(!process.HasExited)RequestClose(process.Id);
                 error=RmShutdown(session,0,IntPtr.Zero);
+                var graceful=Stopwatch.StartNew();
+                while(processes.Any(p=>!p.HasExited)&&graceful.Elapsed<TimeSpan.FromSeconds(3))Thread.Sleep(100);
+                if(processes.Any(p=>!p.HasExited))error=RmShutdown(session,1,IntPtr.Zero);
                 foreach(var process in processes)if(!process.HasExited&&!process.WaitForExit(10000))throw new IOException("CurseForge could not finish closing. Update cancelled ("+error+").");
             }
             finally{RmEndSession(session);}
