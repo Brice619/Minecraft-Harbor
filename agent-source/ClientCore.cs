@@ -36,6 +36,7 @@ public sealed partial class ClientCore:IDisposable
     public static void RequireGameClosed(string folder){if(IsRunning(folder))throw new InvalidOperationException("Close Minecraft before updating this pack.");}
     public Task<string> Sync(string folder,LanSyncInfo info,Action<string>? check=null)
     {
+        if(AutoModpackManaged(folder))return Task.FromResult("AutoModpack will check server updates when Minecraft starts.");
         if(!info.FullPack)throw new InvalidOperationException("The host has not selected a client pack folder. Set it in Harbor LAN PCs before updating.");
         return SyncPack(folder,info,check);
     }

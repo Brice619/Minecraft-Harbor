@@ -21,6 +21,8 @@ The release contains the application only. Private saves, accounts, modpacks, an
 
 ## 1.3 update
 
+For packs already configured with AutoModpack, Harbor Client leaves mod and loader updates to AutoModpack and launches without requiring Harbor pairing. This prevents two updaters from managing the same pack.
+
 Harbor Client now installs the matching NeoForge version before launching a synced pack. CurseForge closes automatically for loader updates. Both installers close existing installations and update them in place, preserving user data. Harbor saves and stops its server before replacement. Existing portable installations are detected too. The Connected PCs list keeps its panel background when refreshing.
 
 Installation, in-place updates, hidden-window shutdown, save-before-close, and profile rollback passed isolated tests. The official NeoForge installer was also tested. NeoForge profile updates close CurseForge and its Overwolf host, then update both the pack metadata and CurseForge's persistent profile cache in one recoverable transaction. This prevents the old loader from returning at launch. The vanilla game JAR alias, client patch, and installer metadata required by CurseForge are prepared, and profiles left incomplete by 1.2 are repaired automatically. Existing complete installations are reused. Client pack updates no longer retain automatic backup folders; temporary transaction files are removed after completion or recovery. Installation progress and the selected version remain visible. Live Minecraft launch remains unverified. The installers are unsigned.
