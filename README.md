@@ -1,6 +1,6 @@
 # Minecraft Harbor
 
-By Rise Digital. Create and manage vanilla and modded Minecraft servers from one Windows app.
+Create and manage vanilla and modded Minecraft servers from one Windows app.
 
 [Download Minecraft Harbor 1.0](https://github.com/Brice619/Minecraft-Harbor/releases/tag/v1.0)
 
@@ -23,4 +23,4 @@ The release contains the application only. Private saves, accounts, modpacks, an
 
 This build is published as a prerelease for testing. Client synchronization and installer install/update/uninstall checks passed. Windows signing/reputation policy blocked the new main Harbor test executable on the development PC, so final main-app verification remains incomplete. The installer is unsigned.
 
-Copyright © Rise Digital. Minecraft is a trademark of Mojang Studios. Minecraft Harbor is an independent project.
+Minecraft is a trademark of Mojang Studios. Minecraft Harbor is an independent project.
