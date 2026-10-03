@@ -5,8 +5,10 @@
     <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained><RuntimeIdentifier>win-x64</RuntimeIdentifier><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../source/UpdateShutdown.cs" Link="UpdateShutdown.cs"/>
     <Compile Include="../source/LanProtocol.cs" Link="LanProtocol.cs"/>
     <Compile Include="../source/PackSyncProtocol.cs" Link="PackSyncProtocol.cs"/>
     <PackageReference Include="System.Management" Version="10.0.0"/>
   </ItemGroup>
 </Project>
+

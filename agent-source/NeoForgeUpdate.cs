@@ -15,7 +15,7 @@ internal static class NeoForgeUpdate
         foreach(var process in Process.GetProcessesByName("CurseForge"))
         {
             using(process)if(!process.HasExited)
-                throw new InvalidOperationException("Exit CurseForge (including its tray icon), then click Update & Launch again. Harbor will install the matching NeoForge version and reopen the pack.");
+                throw new InvalidOperationException("CurseForge reopened during the update. Try again.");
         }
     }
 
@@ -167,3 +167,4 @@ internal static class NeoForgeUpdate
         if(process.ExitCode!=0)throw new InvalidOperationException("NeoForge installation failed. "+string.Join(" ",log.Split('\n').Where(l=>l.Contains("error",StringComparison.OrdinalIgnoreCase)||l.Contains("fail",StringComparison.OrdinalIgnoreCase)).TakeLast(3)));
     }
 }
+

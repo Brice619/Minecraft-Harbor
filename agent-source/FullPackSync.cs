@@ -10,11 +10,11 @@ public sealed partial class ClientCore
     static readonly JsonSerializerOptions PackJson=new(JsonSerializerDefaults.Web){WriteIndented=true};
     public async Task<string> SyncPack(string folder,LanSyncInfo info,Action<string>? check=null)
     {
-        check??=RequireGameClosed;check(folder);Recover(folder,check);
+        check??=RequireGameClosed;check(folder);await Task.Run(()=>Recover(folder,check,HarborUpdates.UpdateShutdown.CloseCurseForge));
         Progress?.Invoke("Checking mod updates…");
         var profile=ClientProfile.Read(folder);if(info.ProjectId>0?profile.ProjectId!=info.ProjectId:!profile.Name.Equals(info.Pack,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Choose an existing copy of "+info.Pack+" from the same modpack project.");
         bool updateLoader=ReadLoaderVersion(folder,info,false)!=info.LoaderVersion;
-        if(updateLoader){if(info.Loader!="neoforge")RequireMatchingLoader(folder,info);NeoForgeUpdate.RequireLauncherClosed();}
+        if(updateLoader){if(info.Loader!="neoforge")RequireMatchingLoader(folder,info);Progress?.Invoke("Closing CurseForge…");await Task.Run(HarborUpdates.UpdateShutdown.CloseCurseForge);}
         using var response=await Post(Config.Host+"harbor/manifest",new PackSyncRequest(Config.Id,Config.Token,""));response.EnsureSuccessStatusCode();if(response.Content.Headers.ContentLength>32*1024*1024)throw new InvalidDataException("Pack manifest is too large.");var manifest=await response.Content.ReadFromJsonAsync<PackSyncManifest>()??throw new InvalidDataException("Missing pack manifest.");
         ValidateManifest(manifest);if(!SameServerVersion(info,manifest))throw new InvalidDataException("The server changed packs. Check for updates again.");
         string stateFile=System.IO.Path.Combine(folder,".harbor-sync-state.json");var previous=File.Exists(stateFile)?JsonSerializer.Deserialize<PackSyncState>(File.ReadAllText(stateFile),PackJson):null;if(previous!=null&&(previous.Host!=Config.Host||previous.ServerId!=manifest.ServerId))throw new InvalidDataException("This folder is synced to a different server. Choose a separate copy for this server.");
@@ -50,3 +50,9 @@ public sealed partial class ClientCore
     static void WriteLoaderMetadata(string file,string contents){File.WriteAllText(file+".harbor-new",contents);File.Move(file+".harbor-new",file,true);}
     static void Restore(string folder,PackSyncTransaction t){string backupRoot=System.IO.Path.GetFullPath(System.IO.Path.Combine(folder,"harbor-sync-backups"))+System.IO.Path.DirectorySeparatorChar;if(!System.IO.Path.GetFullPath(t.Backup).StartsWith(backupRoot,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Invalid backup recovery location.");if(t.LoaderBefore!=null){string metadata=System.IO.Path.Combine(folder,"minecraftinstance.json");if(File.ReadAllText(metadata)==t.LoaderAfter)WriteLoaderMetadata(metadata,t.LoaderBefore);}foreach(string path in t.Files){string target=PackSyncPaths.Resolve(folder,path);if(t.Existed.Contains(path,StringComparer.OrdinalIgnoreCase)){string source=PackSyncPaths.Resolve(t.Backup,path);Directory.CreateDirectory(System.IO.Path.GetDirectoryName(target)!);File.Copy(source,target,true);}else if(File.Exists(target))File.Delete(target);}}
 }
+
+
+
+
+
+
