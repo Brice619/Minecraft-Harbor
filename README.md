@@ -21,8 +21,8 @@ The release contains the application only. Private saves, accounts, modpacks, an
 
 ## 1.2 update
 
-Harbor Client now installs the matching NeoForge version before launching a synced pack. Exit CurseForge before a loader update so it can reload the updated profile. Both installers detect existing installations and update them in place, preserving user data. The Connected PCs list keeps its panel background when refreshing.
+Harbor Client now installs the matching NeoForge version before launching a synced pack. CurseForge closes automatically for loader updates. Both installers close existing installations and update them in place, preserving user data. Harbor saves and stops its server before replacement. Existing portable installations are detected too. The Connected PCs list keeps its panel background when refreshing.
 
-The official NeoForge installer and profile rollback were tested in isolated folders. Live joining-PC launch validation remains pending. The installers are unsigned.
+Installation, in-place updates, hidden-window shutdown, save-before-close, and profile rollback passed isolated tests. The official NeoForge installer was also tested. A live joining-PC launch remains unverified. The installers are unsigned.
 
 Minecraft is a trademark of Mojang Studios. Minecraft Harbor is an independent project.
