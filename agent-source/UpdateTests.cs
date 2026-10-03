@@ -7,6 +7,12 @@ internal static class UpdateTests
 {
     internal static void InstallFiles(string root,List<string> checks)
     {
+        if(!UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--type=renderer --uid="+UpdateShutdown.CurseForgeExtension+" --owapp=CurseForge")||
+           !UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid=\""+UpdateShutdown.CurseForgeExtension+"\"")||
+           UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid=another-extension --owapp=CurseForge")||
+           UpdateShutdown.IsCurseForgeRenderer("java.exe","--uid="+UpdateShutdown.CurseForgeExtension)||
+           UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid="+UpdateShutdown.CurseForgeExtension+"-other"))throw new Exception("Overwolf CurseForge identification failed");
+        checks.Add("Overwolf CurseForge background processes are identified by their exact extension ID; unrelated apps and Java are excluded");
         string folder=Path.Combine(root,"client-install"),source=Path.Combine(root,"new-client.exe");Directory.CreateDirectory(folder);
         string target=Path.Combine(folder,"Minecraft Harbor Client.exe"),config=Path.Combine(folder,"connection.json");
         File.WriteAllText(target,"old application");File.WriteAllText(config,"preserve my pairing and folder");File.WriteAllText(source,"updated application");

@@ -6,9 +6,14 @@ internal static class Program
 {
     [STAThread] static int Main(string[] args)
     {
+        if(args.Length==1&&args[0]=="--update-only")
+        {
+            try{if(!ClientInstallation.Exists(ClientConfig.Root))throw new InvalidOperationException("Install Harbor Client first, then run the updater.");ClientInstallation.Install(Environment.ProcessPath!,ClientConfig.Root);return 0;}
+            catch(Exception ex){ClientDiagnostics.Record(ex);return 1;}
+        }
         try{if(args.Length==2&&args[0]=="--shutdown-test"){UpdateTests.Shutdown(args[1]);return 0;}if(args.Length==2&&args[0]=="--shutdown-fixture"){Application.EnableVisualStyles();UpdateTests.Fixture(args[1]);return 0;}if(args.Length==2&&args[0]=="--loader-install-test"){LoaderUpdateTests.Install(args[1]).GetAwaiter().GetResult();return 0;}if(args.Length==2&&args[0]=="--self-test"){PackAgentTests.Run(args[1]).GetAwaiter().GetResult();return 0;}Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             if(args.Length==2&&args[0]=="--preview"){Application.Run(new ClientForm(args[1]));return 0;}
-            if(Path.GetFileName(Environment.ProcessPath)!= "Minecraft Harbor Client.exe"){Application.Run(new InstallForm());return 0;}
+            if(!string.Equals(Path.GetFileName(Environment.ProcessPath),"Minecraft Harbor Client.exe",StringComparison.OrdinalIgnoreCase)){Application.Run(new InstallForm());return 0;}
             using var mutex=new Mutex(true,"Local\\MinecraftHarborClient",out bool first);if(!first){MessageBox.Show("Harbor Client is already open. Use its window to select and launch a pack.","Minecraft Harbor Client");return 0;}
             Application.Run(new ClientForm());return 0;
         }catch(Exception ex){if(args.Length==2)File.WriteAllText(args[1]+".error.txt",ex.ToString());else MessageBox.Show(ex.Message,"Minecraft Harbor Client");return 1;}
@@ -19,9 +24,9 @@ internal sealed class InstallForm:Form
     public InstallForm()
     {
         bool updating=ClientInstallation.Exists(ClientConfig.Root),busy=false,finished=false;
-        SuspendLayout();ClientUi.Style(this,"Minecraft Harbor Client 1.2 Setup",620,310);
+        SuspendLayout();ClientUi.Style(this,"Minecraft Harbor Client 1.3 Setup",620,310);
         ClientUi.Label(this,updating?"Update Harbor Client":"Minecraft Harbor Client",25,25,570,42,22,true);
-        var message=ClientUi.Label(this,updating?"Update to version 1.2.":"Install Minecraft Harbor Client 1.2.",27,84,566,95,11);
+        var message=ClientUi.Label(this,updating?"Update to version 1.3.":"Install Minecraft Harbor Client 1.3.",27,84,566,95,11);
         var install=ClientUi.Button(this,updating?"Update Client":"Install Client",25,225,280,true);var cancel=ClientUi.Button(this,"Cancel",321,225,272);cancel.Click+=(_,_)=>Close();
         install.Click+=async(_,_)=>
         {
@@ -70,8 +75,20 @@ internal sealed class ClientForm:Form
     {
         if(working)return;working=true;SetButtons(false);
         try{var profile=ClientProfile.Read(target);if(ClientCore.IsRunning(target)){MessageBox.Show(this,"This copy is already running. Close Minecraft before checking updates or launching it again.","Minecraft Is Running");return;}
-            if(sync){try{var info=await core.Info();status.Text=await core.Sync(target,info);await core.Report(target,info,status.Text);}catch(Exception ex)when(ex is HttpRequestException{StatusCode:null} or TaskCanceledException){if(MessageBox.Show(this,"Harbor is unreachable. Launch this pack without checking for updates?", "Server Unavailable",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;}}
-            Process.Start(new ProcessStartInfo(profile.LaunchUri){UseShellExecute=true});status.Text="Launch sent to CurseForge for "+profile.Name+".";
+            string result="";
+            if(sync){try{var info=await core.Info();result=await core.Sync(target,info);status.Text=result;await core.Report(target,info,result);if(!result.Contains(" · NeoForge "))result+=" · "+info.Loader+" "+info.LoaderVersion;}catch(Exception ex)when(ex is HttpRequestException{StatusCode:null} or TaskCanceledException){if(MessageBox.Show(this,"Harbor is unreachable. Launch this pack without checking for updates?", "Server Unavailable",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;}}
+            var launcherProcesses=HarborUpdates.UpdateShutdown.CurseForgeProcesses();bool coldLaunch=launcherProcesses.Length==0;foreach(var process in launcherProcesses)process.Dispose();
+            Process.Start(new ProcessStartInfo(profile.LaunchUri){UseShellExecute=true});
+            if(coldLaunch)
+            {
+                status.Text=(result.Length>0?result+"\n":"")+"Starting CurseForge…";
+                bool started=false;
+                for(int attempt=0;attempt<30;attempt++){await Task.Delay(1000);if(await Task.Run(()=>ClientCore.IsRunning(target))){started=true;break;}}
+                // Overwolf may consume the first launch URI while restoring its desktop.
+                // Retry once after startup, only if this profile has not begun running.
+                if(!started)Process.Start(new ProcessStartInfo(profile.LaunchUri){UseShellExecute=true});
+            }
+            status.Text=(result.Length>0?result+"\n":"")+"Launch sent to CurseForge for "+profile.Name+".";
         }catch(Exception ex){ClientDiagnostics.Record(ex);status.Text=ex.Message;}finally{working=false;SetButtons(true);}
     }
     void SetButtons(bool enabled){pair.Enabled=other.Enabled=launch.Enabled=enabled;}

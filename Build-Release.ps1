@@ -32,6 +32,6 @@ try {
 Move-Item -LiteralPath $temporaryPayload -Destination $payloadPath -Force
 (Get-FileHash -LiteralPath $payloadPath).Hash | Set-Content -LiteralPath (Join-Path $PSScriptRoot 'app-installer-source/payload.sha256')
 Publish-Project (Join-Path $PSScriptRoot 'app-installer-source/HarborSetup.csproj') $installerOutput
-$installer = Join-Path $installerOutput 'Minecraft-Harbor-Setup-1.2.exe'
+$installer = Join-Path $installerOutput 'Minecraft-Harbor-Setup-1.3.exe'
 (Get-FileHash -LiteralPath $installer).Hash | Set-Content -LiteralPath ($installer + '.sha256')
 Write-Output "Installer: $installer"

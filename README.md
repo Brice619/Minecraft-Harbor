@@ -2,7 +2,7 @@
 
 Create and manage vanilla and modded Minecraft servers from one Windows app.
 
-[Download Minecraft Harbor 1.2](https://github.com/Brice619/Minecraft-Harbor/releases/tag/v1.2)
+[Download Minecraft Harbor 1.3](https://github.com/Brice619/Minecraft-Harbor/releases/tag/v1.3)
 
 ## Features
 
@@ -15,14 +15,14 @@ Create and manage vanilla and modded Minecraft servers from one Windows app.
 
 ## Install
 
-Download **Minecraft-Harbor-Setup-1.2.exe** from Releases and run the installer. Windows 10/11, 64-bit. The app runtime is included. Minecraft, Java server runtimes, and modpacks are prepared separately as needed. Read **README.txt** in the release for LAN setup instructions.
+Download **Minecraft-Harbor-Setup-1.3.exe** from Releases and run the installer. Windows 10/11, 64-bit. The app runtime is included. Minecraft, Java server runtimes, and modpacks are prepared separately as needed. Read **README.txt** in the release for LAN setup instructions.
 
 The release contains the application only. Private saves, accounts, modpacks, and user settings are not included.
 
-## 1.2 update
+## 1.3 update
 
 Harbor Client now installs the matching NeoForge version before launching a synced pack. CurseForge closes automatically for loader updates. Both installers close existing installations and update them in place, preserving user data. Harbor saves and stops its server before replacement. Existing portable installations are detected too. The Connected PCs list keeps its panel background when refreshing.
 
-Installation, in-place updates, hidden-window shutdown, save-before-close, and profile rollback passed isolated tests. The official NeoForge installer was also tested. A live joining-PC launch remains unverified. The installers are unsigned.
+Installation, in-place updates, hidden-window shutdown, save-before-close, and profile rollback passed isolated tests. The official NeoForge installer was also tested. NeoForge profile updates close CurseForge and its Overwolf host, then update both the pack metadata and CurseForge's persistent profile cache in one recoverable transaction. This prevents the old loader from returning at launch. The vanilla game JAR alias, client patch, and installer metadata required by CurseForge are prepared, and profiles left incomplete by 1.2 are repaired automatically. Existing complete installations are reused. Installation progress and the selected version remain visible. Live Minecraft launch remains unverified. The installers are unsigned.
 
 Minecraft is a trademark of Mojang Studios. Minecraft Harbor is an independent project.

@@ -6,7 +6,7 @@ Use Windows and the .NET 10 SDK. From the repository root, run:
 ./Build-Release.ps1
 ```
 
-The script publishes Harbor, the LAN client installer, and the 1.2 app installer. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
+The script publishes Harbor, the LAN client installer, and the 1.3 app installer. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
 
 The installer payload is generated from these builds. Do not commit `payload.zip`, build output, server data, saved worlds, local settings, or credentials.
 
