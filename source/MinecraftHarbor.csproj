@@ -8,7 +8,7 @@
     <AssemblyName>Minecraft Harbor</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>harbor.ico</ApplicationIcon>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Rise Digital</Authors>
     <Company>Rise Digital</Company><Product>Minecraft Harbor</Product><Copyright>Copyright © Rise Digital</Copyright>
   </PropertyGroup>

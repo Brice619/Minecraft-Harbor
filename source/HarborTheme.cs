@@ -265,6 +265,7 @@ internal class FixedBackdropPanel:Panel
     }
     protected override void OnPaintBackground(PaintEventArgs e)
     {
+        if(BackColor.A==255){e.Graphics.Clear(BackColor);return;}
         Control? ancestor=Parent;while(ancestor!=null&&ancestor is not HarborSurface)ancestor=ancestor.Parent;
         if(ancestor is HarborSurface surface){var origin=surface.PointToClient(PointToScreen(Point.Empty));surface.PaintBackdrop(e.Graphics,origin,ClientSize);}
         else base.OnPaintBackground(e);
@@ -276,6 +277,3 @@ internal sealed class PaintedPanel:FixedBackdropPanel
     public PaintedPanel(){DoubleBuffered=true;ResizeRedraw=true;BackColor=Color.Transparent;}
     protected override void OnPaint(PaintEventArgs e){base.OnPaint(e);var g=e.Graphics;var saved=g.Save();g.SmoothingMode=SmoothingMode.AntiAlias;g.TextRenderingHint=TextRenderingHint.ClearTypeGridFit;float scale=DeviceDpi/96f;g.ScaleTransform(scale,scale);Draw?.Invoke(g,Width/scale,Height/scale);g.Restore(saved);}
 }
-
-
-
