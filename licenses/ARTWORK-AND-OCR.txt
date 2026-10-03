@@ -1,0 +1,21 @@
+Harbor night scene
+Created with the built-in image-generation tool from the owner's supplied reference.
+Source and final prompt: source/Assets/night-harbor.png and night-harbor-prompt.txt.
+
+CurseForge artwork
+Downloaded directly from media.forgecdn.net using the selected installed profile's
+thumbnail URL, preferring the corresponding full-resolution asset. Original pack
+artwork belongs to its respective creators. Its source URL is recorded in the local
+artwork cache. It is displayed in Harbor; the source image is not edited.
+
+Local title recognition
+Tesseract .NET wrapper 5.2.0: https://github.com/charlesw/tesseract
+Copyright 2012-2022 Charles Weld. Apache License 2.0; see included license.
+InteropDotNet: Copyright 2014 Andrey Akinshin, MIT license.
+https://github.com/AndreyAkinshin/InteropDotNet
+Tesseract OCR 5.2.0: https://github.com/tesseract-ocr/tesseract
+Apache License 2.0; see included license.
+English language model: https://github.com/tesseract-ocr/tessdata_fast
+Apache License 2.0; license distributed in tessdata/LICENSE.txt.
+Leptonica 1.82.0: https://github.com/DanBloomberg/leptonica
+See Leptonica-LICENSE.txt.
