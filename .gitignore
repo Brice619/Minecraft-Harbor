@@ -1,0 +1,37 @@
+# Build output
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+*.suo
+*.pdb
+app-installer-source/payload.zip
+app-installer-source/payload.sha256
+
+# Local servers, accounts, and app data
+server/
+profiles/
+backups/
+backup-staging/
+logs/
+cache/
+downloads/
+runtime/
+runtime-state/
+performance/
+player-history/
+recovery/
+client-setup/
+settings.json
+library.json
+appearance.json
+server-process.json
+client-sync-server-files.json
+connection.json
+lan-pcs.json
+.env
+.env.*
+*.pfx
+*.p12
+*.key
