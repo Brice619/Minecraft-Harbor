@@ -1,12 +1,12 @@
 # Building Minecraft Harbor
 
-Use Windows and the .NET 10 SDK. From the repository root, run:
+Use Windows, the .NET 10 SDK and JDK 21. From the repository root, run:
 
 ```powershell
-./Build-Release.ps1
+./Build-Release.ps1 -JavaHome <JDK21-folder> -LegacyClientInstaller <existing-agent-installer>
 ```
 
-The script publishes Harbor, the LAN client installer, and the 1.2 app installer. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
+The script builds and tests the connector mod, then publishes Harbor and the 1.4 app installer. It retains the supplied LAN client installer unchanged; its matching .sha256 file must be beside it. It includes native dependencies, OCR data, artwork, and dependency notices. The final installer is in `artifacts/installer/`, with its SHA-256 checksum.
 
 The installer payload is generated from these builds. Do not commit `payload.zip`, build output, server data, saved worlds, local settings, or credentials.
 
