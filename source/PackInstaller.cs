@@ -13,7 +13,7 @@ public static class PackInstaller
     {
         if(source.Loader is not ("neoforge" or "forge" or "fabric"))throw new InvalidDataException("Harbor currently supports NeoForge, Forge and Fabric server packs.");
         if(!Regex.IsMatch(source.LoaderVersion,@"^[a-zA-Z0-9.\-+_]+$")||!Regex.IsMatch(source.MinecraftVersion,@"^[a-zA-Z0-9.\-+_]+$"))throw new InvalidDataException("Invalid game or loader version in the CurseForge profile.");
-        var profile=new ServerProfile{Name=source.Name,PackVersion=source.PackVersion,MinecraftVersion=source.MinecraftVersion,Loader=source.Loader,LoaderVersion=source.LoaderVersion,CurseForgePath=source.Path,ProjectId=source.ProjectId,ServerFileId=source.ServerFileId};
+        var profile=new ServerProfile{Name=source.Name,PackVersion=source.PackVersion,MinecraftVersion=source.MinecraftVersion,Loader=source.Loader,LoaderVersion=source.LoaderVersion,CurseForgePath=source.Path,ProjectId=source.ProjectId,CurseForgeClientFileId=source.ClientFileId,ServerFileId=source.ServerFileId};
         var stage=Path.Combine(root,"profiles",".preparing-"+profile.Id);Directory.CreateDirectory(stage);
         try {
             setup?.Invoke(new(0,0,"Downloading and preparing "+source.Name+"…",WorldDeferred:true));

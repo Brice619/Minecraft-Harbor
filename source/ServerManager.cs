@@ -217,6 +217,7 @@ public sealed partial class ServerManager : IDisposable
         if(testLauncher==null && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e=>e.Port==25565))throw new IOException("Port 25565 is already in use. Stop the other Minecraft server first.");
         Directory.CreateDirectory(WorldDir);using(var worldLock=OpenWorldLock()) { }
         ApplySettings();
+        if(testLauncher==null){AutoModpackSetup.Prepare(Root,ServerDir,Profile);Library.Save();}
         expectsModernFix=Directory.Exists(Path.Combine(ServerDir,"mods"))&&Directory.EnumerateFiles(Path.Combine(ServerDir,"mods"),"modernfix*.jar").Any();
         var start=testLauncher?.Invoke() ?? new ProcessStartInfo(Profile.JavaPath);
         start.WorkingDirectory=ServerDir;start.UseShellExecute=false;start.CreateNoWindow=true;start.RedirectStandardInput=true;start.RedirectStandardOutput=true;start.RedirectStandardError=true;

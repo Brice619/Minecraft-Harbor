@@ -1,11 +1,37 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Management;
 
 namespace HarborUpdates;
 
 internal static class UpdateShutdown
 {
+    internal const string CurseForgeExtension="cchhcaiapeikjbdbpfplgmpobbcdkdaphclbmkbj";
+    internal static bool IsCurseForgeRenderer(string name,string commandLine)=>
+        name.Equals("OverwolfBrowser.exe",StringComparison.OrdinalIgnoreCase)&&
+        System.Text.RegularExpressions.Regex.IsMatch(commandLine,@"(?:^|\s)--uid=""?"+CurseForgeExtension+@"""?(?:\s|$)",System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    internal static Process[] CurseForgeProcesses()
+    {
+        var ids=new HashSet<int>();
+        using var search=new ManagementObjectSearcher("SELECT Name,ProcessId,ParentProcessId,CommandLine FROM Win32_Process WHERE Name = 'CurseForge.exe' OR Name = 'OverwolfBrowser.exe' OR Name = 'Overwolf.exe'");
+        using var rows=search.Get();
+        var hosts=new HashSet<int>();var parents=new HashSet<int>();
+        foreach(ManagementObject row in rows)using(row)
+        {
+            string name=row["Name"]?.ToString()??"";int id=Convert.ToInt32(row["ProcessId"]);
+            if(name.Equals("Overwolf.exe",StringComparison.OrdinalIgnoreCase))hosts.Add(id);
+            else if(name.Equals("CurseForge.exe",StringComparison.OrdinalIgnoreCase))ids.Add(id);
+            else if(IsCurseForgeRenderer(name,row["CommandLine"]?.ToString()??"")){ids.Add(id);parents.Add(Convert.ToInt32(row["ParentProcessId"]));}
+        }
+        // The Overwolf host owns CurseForge's native profile cache. Closing only its window
+        // leaves that cache alive, which overwrites minecraftinstance.json on the next launch.
+        ids.UnionWith(parents.Where(hosts.Contains));
+        var found=new List<Process>();
+        try{foreach(int id in ids){try{var process=Process.GetProcessById(id);if(process.SessionId==Process.GetCurrentProcess().SessionId&&!process.HasExited)found.Add(process);else process.Dispose();}catch(ArgumentException){}}return found.ToArray();}
+        catch{foreach(var process in found)process.Dispose();throw;}
+    }
     delegate bool WindowCallback(IntPtr window,IntPtr state);
     [DllImport("user32.dll")] static extern bool EnumWindows(WindowCallback callback,IntPtr state);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window,out uint process);
@@ -67,7 +93,7 @@ internal static class UpdateShutdown
         var processes=new List<Process>();
         try
         {
-            foreach(var process in Process.GetProcessesByName("CurseForge"))
+            foreach(var process in CurseForgeProcesses())
             {
                 if(process.SessionId==Process.GetCurrentProcess().SessionId&&!process.HasExited)processes.Add(process);else process.Dispose();
             }
@@ -85,13 +111,15 @@ internal static class UpdateShutdown
             {
                 error=RmRegisterResources(session,0,null,(uint)registered.Count,registered.ToArray(),0,null);
                 if(error!=0)throw new IOException("Windows could not prepare CurseForge for the update ("+error+").");
-                // Register only this session's CurseForge processes, never Minecraft, Java, or Harbor.
+                // Register this session's CurseForge processes and its Overwolf cache host,
+                // never Minecraft, Java, or Harbor. Do not terminate a process tree.
                 // Electron can refuse Restart Manager's normal shutdown (ERROR_FAIL_SHUTDOWN, 351).
                 // Ask it to close first, then let Windows finish closing those registered processes.
                 foreach(var process in processes)if(!process.HasExited)RequestClose(process.Id);
-                error=RmShutdown(session,0,IntPtr.Zero);
                 var graceful=Stopwatch.StartNew();
                 while(processes.Any(p=>!p.HasExited)&&graceful.Elapsed<TimeSpan.FromSeconds(3))Thread.Sleep(100);
+                // Normal Restart Manager shutdown can wait indefinitely for a tray-hosted
+                // Overwolf app. Finish closing only the registered cache-owning processes.
                 if(processes.Any(p=>!p.HasExited))error=RmShutdown(session,1,IntPtr.Zero);
                 foreach(var process in processes)if(!process.HasExited&&!process.WaitForExit(10000))throw new IOException("CurseForge could not finish closing. Update cancelled ("+error+").");
             }

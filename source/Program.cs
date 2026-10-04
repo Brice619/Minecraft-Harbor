@@ -18,6 +18,7 @@ internal static class Program
         var root=args.Contains("--root")?Path.GetFullPath(args[Array.IndexOf(args,"--root")+1]):InstalledApp.DefaultRoot();
         try
         {
+            if(args.Contains("--connector-test")){int i=Array.IndexOf(args,"--connector-test");AutoModpackTests.Run(args[i+1],args[i+2]);return 0;}
             if(args.Contains("--world-picker-test")){PackWorldTests.Run(args[Array.IndexOf(args,"--world-picker-test")+1]).GetAwaiter().GetResult();return 0;}
             if(args.Contains("--world-picker-live-test")){int i=Array.IndexOf(args,"--world-picker-live-test");PackWorldTests.Live(args[i+1],args[i+2],args[i+3]);return 0;}
             if(args.Contains("--installed-pack-live-test")){int i=Array.IndexOf(args,"--installed-pack-live-test");InstalledPackTests.Live(args[i+1],args[i+2],args[i+3]).GetAwaiter().GetResult();return 0;}
