@@ -8,16 +8,16 @@ using System.Text.Json;
 
 namespace MinecraftHarbor;
 
-// This listener serves only the setup page and the verified installer/helper.
+// This listener serves only the setup page and verified official AutoModpack/legacy installer.
 // It deliberately has no filesystem route or server-control endpoint.
 public sealed class ClientSetup : IDisposable
 {
     public const int Port = 25566;
-    public const string HelperName = "automodpack-mc1.21.1-neoforge-4.0.6-harbor14.jar";
+    public const string HelperName = "automodpack-5.0.0-rc.2.jar";
     public const string InstallerName = "Minecraft-Harbor-Client-Setup.exe";
     public const string AgentName = "Minecraft-Harbor-Agent-Setup.exe";
     public const string RetiredPackageName = "Going-all-the-way-Harbor.zip";
-    internal const string HelperSha256 = "EC3F05755D3CAE51C313C6DDFD660FAC681D59596F287107AC4380B233C270D8";
+    internal const string HelperSha256 = "96DC57F223B83850A1684EBB8283E1E6AA5CFB89AE5226464DE6D5FC85BB1F80";
     readonly string root;
     readonly Func<ServerManager>? current;
     public PackPublisher? Publisher=>current==null?null:publisher??=new(current());
@@ -138,7 +138,8 @@ public sealed class ClientSetup : IDisposable
     static async Task ReplyFile(NetworkStream stream,string path,CancellationToken token){using var file=File.OpenRead(path);string header=$"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {file.Length}\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n\r\n";await stream.WriteAsync(Encoding.ASCII.GetBytes(header),token);await file.CopyToAsync(stream,token);}
     public string Fingerprint()
     {
-        var path = Path.Combine(ServerDir,"automodpack",".private","cert.crt");
+        var path = Path.Combine(ServerDir,"automodpack","credentials","certificate.crt");
+        if(!File.Exists(path)) path=Path.Combine(ServerDir,"automodpack",".private","cert.crt");
         if(!File.Exists(path)) return "Available after the server starts";
         try { using var cert = X509Certificate2.CreateFromPem(File.ReadAllText(path)); return cert.GetCertHashString(HashAlgorithmName.SHA256).ToLowerInvariant(); }
         catch(CryptographicException) { return "Certificate could not be read"; }
@@ -156,7 +157,7 @@ public sealed class ClientSetup : IDisposable
             return $"{mods} custom mod{(mods==1?"":"s")} to sync · {size / 1024d:N0} KB · Uses your existing ATM10 installation";
         } catch { return "The server is preparing the download list."; }
     }
-    internal static void VerifyHelper(byte[] helper){if(Convert.ToHexString(SHA256.HashData(helper)) != HelperSha256)throw new InvalidDataException("The Harbor connector mod failed verification. Reinstall Harbor 1.4.");}
+    internal static void VerifyHelper(byte[] helper){if(Convert.ToHexString(SHA256.HashData(helper)) != HelperSha256)throw new InvalidDataException("Official AutoModpack failed verification. Reinstall Harbor.");}
     public byte[] Helper()
     {
         var helper = File.ReadAllBytes(Path.Combine(root,"client-setup",HelperName));
@@ -178,11 +179,12 @@ public sealed class ClientSetup : IDisposable
         return $$"""
         <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
         <title>Minecraft Harbor Client</title><style>body{margin:0;background:#10171d;color:#e7eff1;font:18px/1.65 system-ui,sans-serif}main{max-width:850px;margin:60px auto;padding:0 28px}h1{font-size:48px;line-height:1.15}.card{padding:28px;background:#19232b;border:1px solid #2d3d46;border-radius:16px;margin:28px 0}.button{display:inline-block;background:#7de2b6;color:#10171d;padding:14px 22px;border-radius:8px;text-decoration:none;font-weight:700}.muted{color:#9fb1b7}li{padding:9px}code{overflow-wrap:anywhere}</style>
-        <main><h1>Minecraft Harbor Connector</h1><p>Required pack: <strong>{{E(s?.Profile.Name??"modpack")}} {{E(s?.Profile.PackVersion??"")}}</strong></p>
-        <div class="card"><h2>Connect through Minecraft</h2><a class="button" href="/{{HelperName}}">Download connector mod</a><ol>
-        <li>Use the required version in your existing CurseForge profile.</li><li>Close Minecraft. Replace the old AutoModpack JAR in that profile’s mods folder with this connector.</li>
-        <li>Launch the profile and join the server. The connector verifies the pack version before syncing mods, configs and scripts.</li></ol>
-        <p class="muted">Minecraft 1.21.1 · NeoForge. Syncing stops if the CurseForge release does not match.</p></div>
+        <main><h1>Join your Harbor server</h1>
+        <div class="card"><h2>Before continuing</h2><p>Make sure your existing CurseForge profile is running <strong>{{E(s?.Profile.Name??"modpack")}} {{E(s?.Profile.PackVersion??"")}}</strong> before syncing.</p></div>
+        <div class="card"><h2>Connect through Minecraft</h2><a class="button" href="/{{HelperName}}">Download official AutoModpack</a><ol>
+        <li>Use the version shown above in your existing CurseForge profile.</li><li>Close Minecraft. Replace the old AutoModpack JAR in that profile’s mods folder with the official release.</li>
+        <li>Launch the profile and join the server. AutoModpack syncs mods, configs and scripts.</li></ol>
+        <p class="muted">Minecraft 1.21.1 · NeoForge. The pack version is a reminder; Harbor does not block syncing based on it.</p></div>
         <div class="card"><h2>Server certificate</h2><code>{{E(Fingerprint())}}</code></div>
         <p>Join Minecraft at <strong>{{E(ServerManager.LanAddress())}}:25565</strong></p>
         <details><summary>Previous Windows client</summary><a href="/{{AgentName}}">Download existing installer</a></details></main></html>

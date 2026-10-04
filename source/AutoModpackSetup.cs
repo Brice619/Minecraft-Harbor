@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Diagnostics;
 namespace MinecraftHarbor;
 
 internal static class AutoModpackSetup
@@ -21,26 +21,43 @@ internal static class AutoModpackSetup
     internal static void Prepare(string root,string serverDir,ServerProfile profile)
     {
         if(profile.Loader!="neoforge" || profile.MinecraftVersion!="1.21.1" || profile.ProjectId<=0) return;
-        var requirement=Requirement(profile);
-        if(requirement==null) return;
         string helper=Path.Combine(root,"client-setup",ClientSetup.HelperName);
-        if(!File.Exists(helper)) throw new FileNotFoundException("The Harbor connector mod is missing. Reinstall Harbor 1.4.");
+        if(!File.Exists(helper)) throw new FileNotFoundException("Official AutoModpack is missing. Reinstall Harbor.");
         ClientSetup.VerifyHelper(File.ReadAllBytes(helper));
         Directory.CreateDirectory(Path.Combine(serverDir,"automodpack"));
-        ServerManager.WriteJson(Path.Combine(serverDir,"automodpack","harbor-requirements.json"),requirement);
-        string configPath=Path.Combine(serverDir,"automodpack","automodpack-server.json");
-        var config=File.Exists(configPath)?JsonNode.Parse(File.ReadAllText(configPath))!.AsObject():new JsonObject();
-        var synced=config["syncedFiles"]?.AsArray().Select(n=>n!.GetValue<string>()).ToHashSet(StringComparer.Ordinal)??new(){"/mods/*.jar","/kubejs/**","!/kubejs/server_scripts/**","/emotes/*"};
-        synced.Add("/config/**");synced.Add("!/config/fancymenu/user_variables.db");
-        config["syncedFiles"]=new JsonArray(synced.Select(s=>(JsonNode?)JsonValue.Create(s)).ToArray());
-        var editable=config["allowEditsInFiles"]?.AsArray().Select(n=>n!.GetValue<string>()).Where(s=>s!="/config/**").ToArray()??["/options.txt"];
-        config["allowEditsInFiles"]=new JsonArray(editable.Select(s=>(JsonNode?)JsonValue.Create(s)).ToArray());
-        config["DO_NOT_CHANGE_IT"]=2;config["modpackHost"]=true;config["generateModpackOnStart"]=true;config["requireAutoModpackOnClient"]=true;config["selfUpdater"]=false;
-        File.WriteAllText(configPath,config.ToJsonString(new JsonSerializerOptions{WriteIndented=true}));
+        // Retire the custom connector's enforced pack-version requirement.
+        string retiredRequirement=Path.Combine(serverDir,"automodpack","harbor-requirements.json");
+        if(File.Exists(retiredRequirement))File.Delete(retiredRequirement);
+        Configure(root,serverDir,profile,profile.Name,profile.PackVersion);
+        PreserveCertificate(serverDir);
         string mods=Path.Combine(serverDir,"mods");Directory.CreateDirectory(mods);
         string target=Path.Combine(mods,ClientSetup.HelperName);
-        // Replace the packaged helper, retaining all other mods and the server certificate.
-        foreach(var old in Directory.EnumerateFiles(mods,"automodpack-mc1.21.1-neoforge-*.jar").Where(p=>!Path.GetFileName(p).Equals(ClientSetup.HelperName,StringComparison.OrdinalIgnoreCase))) File.Delete(old);
+        // Install the unmodified official release, retaining other mods and the certificate.
+        foreach(var old in Directory.EnumerateFiles(mods,"automodpack*.jar").Where(p=>
+            System.Text.RegularExpressions.Regex.IsMatch(Path.GetFileName(p),@"^automodpack-(?:mc1\.21\.1-neoforge-|\d+\.)",System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            && !Path.GetFileName(p).Equals(ClientSetup.HelperName,StringComparison.OrdinalIgnoreCase))) File.Delete(old);
         if(!File.Exists(target)||Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(target)))!=ClientSetup.HelperSha256)File.Copy(helper,target,true);
+    }
+    internal static void Configure(string root,string serverDir,ServerProfile profile,params string[] arguments)
+    {
+        string tools=Path.Combine(root,"server-tools"), helper=Path.Combine(root,"client-setup",ClientSetup.HelperName);
+        if(!File.Exists(Path.Combine(tools,"configure-automodpack.jar"))) throw new FileNotFoundException("Server configuration files are missing. Reinstall Harbor.");
+        var start=new ProcessStartInfo(profile.JavaPath){WorkingDirectory=serverDir,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+        foreach(string arg in new[]{"-cp",tools+Path.DirectorySeparatorChar+"*"+Path.PathSeparator+helper,"ConfigureAutoModpack",serverDir}.Concat(arguments))start.ArgumentList.Add(arg);
+        using var process=Process.Start(start)??throw new IOException("Could not prepare AutoModpack settings.");
+        var output=process.StandardOutput.ReadToEndAsync();var error=process.StandardError.ReadToEndAsync();
+        if(!process.WaitForExit(30000)){process.Kill();throw new IOException("AutoModpack settings took too long to prepare.");}
+        if(process.ExitCode!=0)throw new IOException("Could not prepare AutoModpack settings: "+output.GetAwaiter().GetResult()+error.GetAwaiter().GetResult());
+    }
+    static void PreserveCertificate(string serverDir)
+    {
+        string folder=Path.Combine(serverDir,"automodpack"),credentials=Path.Combine(folder,"credentials");
+        string certificate=Path.Combine(credentials,"certificate.crt"),key=Path.Combine(credentials,"private-key.pem");
+        if(File.Exists(certificate)&&File.Exists(key))return;
+        string oldCert=Path.Combine(folder,".private","cert.crt"),oldKey=Path.Combine(folder,".private","key.pem");
+        if(!File.Exists(oldCert)&&!File.Exists(oldKey))return;
+        if(File.Exists(certificate)||File.Exists(key)||!File.Exists(oldCert)||!File.Exists(oldKey))throw new IOException("The AutoModpack certificate pair is incomplete. Restore it before starting the server.");
+        Directory.CreateDirectory(credentials);
+        File.Copy(oldCert,certificate);File.Copy(oldKey,key);
     }
 }
