@@ -6,13 +6,13 @@ using System.Text.RegularExpressions;
 using MinecraftHarbor;
 namespace HarborAgent;
 
-internal sealed record LoaderProfileUpdate(string Before,string After);
+internal sealed record LoaderProfileUpdate(string Before,string After,string? CachePath=null,string? CacheBefore=null,string? CacheAfter=null);
 
 internal static class NeoForgeUpdate
 {
     internal static void RequireLauncherClosed()
     {
-        foreach(var process in Process.GetProcessesByName("CurseForge"))
+        foreach(var process in HarborUpdates.UpdateShutdown.CurseForgeProcesses())
         {
             using(process)if(!process.HasExited)
                 throw new InvalidOperationException("CurseForge reopened during the update. Try again.");
@@ -27,6 +27,16 @@ internal static class NeoForgeUpdate
         string install=Path.Combine(parent.Parent.FullName,"Install");
         if(!Directory.Exists(Path.Combine(install,"versions")))throw new InvalidDataException("This CurseForge installation is incomplete. Launch this profile once through CurseForge first.");
         return install;
+    }
+
+    internal static bool HasCurseForgeLaunchFiles(string folder,LanSyncInfo info)=>HasLaunchFiles(InstallRoot(folder),info);
+
+    internal static bool HasLaunchFiles(string install,LanSyncInfo info)
+    {
+        string id="neoforge-"+info.LoaderVersion;
+        string gameJar=Path.Combine(install,"versions",id,id+".jar"),vanillaJar=Path.Combine(install,"versions",info.MinecraftVersion,info.MinecraftVersion+".jar");
+        string patch=Path.Combine(install,"libraries","net","neoforged","neoforge",info.LoaderVersion,"neoforge-"+info.LoaderVersion+"-clientdata.lzma");
+        return File.Exists(gameJar)&&File.Exists(vanillaJar)&&File.Exists(patch)&&new FileInfo(patch).Length>0&&new FileInfo(gameJar).Length==new FileInfo(vanillaJar).Length&&Hash(gameJar)==Hash(vanillaJar);
     }
 
     internal static async Task<LoaderProfileUpdate> Prepare(string folder,LanSyncInfo info,Action<string>? progress,Action<string> check,Action? launcherCheck=null,string? testJava=null)
@@ -62,7 +72,14 @@ internal static class NeoForgeUpdate
                 string Read(string name){var entry=archive.GetEntry(name)??throw new InvalidDataException("NeoForge installer is incomplete.");if(entry.Length>4*1024*1024)throw new InvalidDataException("NeoForge metadata is too large.");using var reader=new StreamReader(entry.Open());return reader.ReadToEnd();}
                 version=Read("version.json");profile=Read("install_profile.json");
             }
-            var update=BuildProfile(before,info,version,profile);
+            var update=CurseForgeProfileCache.Attach(folder,BuildProfile(before,info,version,profile));
+            if(CanReuseInstalled(install,info,version,true))
+            {
+                check(folder);launcherCheck();
+                if(File.ReadAllText(metadata)!=before)throw new InvalidOperationException("The CurseForge profile changed during the update. Try again.");
+                progress?.Invoke("Verified installed NeoForge "+info.LoaderVersion+". Preparing the profile update…");
+                return update;
+            }
             string runtime=Path.Combine(stage,"runtime");Directory.CreateDirectory(runtime);
             File.WriteAllText(Path.Combine(runtime,"launcher_profiles.json"),"{\"profiles\":{}}");
             // Reuse the existing vanilla jar; the official installer prepares the loader libraries and runs its processors.
@@ -72,8 +89,16 @@ internal static class NeoForgeUpdate
                 if(File.Exists(source)){string destination=Path.Combine(runtime,"versions",info.MinecraftVersion,Path.GetFileName(source));Directory.CreateDirectory(Path.GetDirectoryName(destination)!);File.Copy(source,destination);}
             }
             progress?.Invoke("Installing NeoForge "+info.LoaderVersion+"…");
-            await RunInstaller(java,installer,runtime,stage,token);
+            await RunInstaller(java,installer,runtime,stage,token,progress);
+            // CurseForge needs a vanilla game-JAR alias and the client patch at its Maven path.
+            // The standard launcher uses inheritance and the official installer discards the patch.
+            string loaderVersionFolder=Path.Combine(runtime,"versions","neoforge-"+info.LoaderVersion);
+            File.Copy(Path.Combine(runtime,"versions",info.MinecraftVersion,info.MinecraftVersion+".jar"),Path.Combine(loaderVersionFolder,"neoforge-"+info.LoaderVersion+".jar"));
+            string patch=Path.Combine(runtime,"libraries","net","neoforged","neoforge",info.LoaderVersion,"neoforge-"+info.LoaderVersion+"-clientdata.lzma");
+            Directory.CreateDirectory(Path.GetDirectoryName(patch)!);
+            using(var archive=ZipFile.OpenRead(installer))(archive.GetEntry("data/client.lzma")??throw new InvalidDataException("NeoForge client patch is missing.")).ExtractToFile(patch);
             VerifyInstalled(runtime,info);
+            if(!HasLaunchFiles(runtime,info))throw new InvalidDataException("CurseForge's NeoForge launch files are incomplete.");
             check(folder);launcherCheck();
             if(File.ReadAllText(metadata)!=before)throw new InvalidOperationException("The CurseForge profile changed during the update. Try again.");
             // Versioned libraries may be shared. Never replace different bytes that another profile might use.
@@ -84,18 +109,22 @@ internal static class NeoForgeUpdate
                 foreach(string source in Directory.EnumerateFiles(sourceRoot,"*",SearchOption.AllDirectories))
                 {
                     string target=Path.Combine(install,relative,Path.GetRelativePath(sourceRoot,source));
-                    // Existing vanilla metadata belongs to CurseForge; only the generated NeoForge version is published.
-                    if(relative=="versions"&&!Path.GetRelativePath(sourceRoot,source).StartsWith("neoforge-"+info.LoaderVersion+Path.DirectorySeparatorChar,StringComparison.Ordinal))continue;
+                    // Preserve existing vanilla files; publish missing base files from the verified installer.
+                    if(relative=="versions"&&!Path.GetRelativePath(sourceRoot,source).StartsWith("neoforge-"+info.LoaderVersion+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&File.Exists(target))continue;
                     if(File.Exists(target))
                     {
-                        if(relative=="versions")
+                        if(relative=="versions"&&Path.GetExtension(target).Equals(".json",StringComparison.OrdinalIgnoreCase))
                         {
                             var existing=JsonNode.Parse(File.ReadAllText(target));
                             if(existing?["id"]?.GetValue<string>()!="neoforge-"+info.LoaderVersion||existing?["inheritsFrom"]?.GetValue<string>()!=info.MinecraftVersion)
                                 throw new IOException("The existing NeoForge launch profile is inconsistent. Repair it in CurseForge first.");
                             continue;
                         }
-                        if(Hash(source)!=Hash(target))throw new IOException("An existing loader file differs: "+Path.GetFileName(target)+". Repair this profile in CurseForge before retrying.");continue;
+                        if(Hash(source)!=Hash(target))
+                        {
+                            throw new IOException("An existing loader file differs: "+Path.GetFileName(target)+". Repair this profile in CurseForge before retrying.");
+                        }
+                        continue;
                     }
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     string temporary=target+".harbor-"+Guid.NewGuid().ToString("N");
@@ -118,11 +147,17 @@ internal static class NeoForgeUpdate
         if(versionData["id"]?.GetValue<string>()!=id||versionData["inheritsFrom"]?.GetValue<string>()!=info.MinecraftVersion||installData["version"]?.GetValue<string>()!=id||installData["minecraft"]?.GetValue<string>()!=info.MinecraftVersion)
             throw new InvalidDataException("NeoForge installer does not match the server's Minecraft and loader versions.");
         var root=JsonNode.Parse(before)!.AsObject();
+        // CurseForge's native processor runner expects explicit client-side data and does
+        // not filter server-only processors from the official combined installer manifest.
+        installData["path"]="net.neoforged:neoforge:"+info.LoaderVersion;
+        if(installData["data"] is JsonObject data)data["SIDE"]=new JsonObject{["client"]="client",["server"]="server"};
+        if(installData["processors"] is JsonArray processors)
+            for(int index=processors.Count-1;index>=0;index--)if(processors[index]?["sides"] is JsonArray sides&&!sides.Any(side=>side?.GetValue<string>()=="client"))processors.RemoveAt(index);
         root["baseModLoader"]=new JsonObject{
             ["forgeVersion"]=info.LoaderVersion,["name"]=id,["type"]=6,["downloadUrl"]="",["filename"]=id+".jar",
             ["installMethod"]=6,["latest"]=false,["recommended"]=false,["versionJson"]=version,
             ["librariesInstallLocation"]="{0}//libraries//net//neoforged//neoforge//"+info.LoaderVersion,
-            ["minecraftVersion"]=info.MinecraftVersion,["installProfileJson"]=profile
+            ["minecraftVersion"]=info.MinecraftVersion,["installProfileJson"]=installData.ToJsonString()
         };
         return new(before,root.ToJsonString());
     }
@@ -131,7 +166,7 @@ internal static class NeoForgeUpdate
     {
         string id="neoforge-"+info.LoaderVersion;
         var version=JsonNode.Parse(File.ReadAllText(Path.Combine(runtime,"versions",id,id+".json")))!;
-        if(version["id"]?.GetValue<string>()!=id)throw new InvalidDataException("Installed NeoForge version is wrong.");
+        if(version["id"]?.GetValue<string>()!=id||version["inheritsFrom"]?.GetValue<string>()!=info.MinecraftVersion||version["libraries"] is not JsonArray {Count:>0})throw new InvalidDataException("Installed NeoForge version is wrong or incomplete.");
         foreach(var library in version["libraries"]!.AsArray())
         {
             var artifact=library?["downloads"]?["artifact"];string? path=artifact?["path"]?.GetValue<string>();
@@ -142,6 +177,22 @@ internal static class NeoForgeUpdate
             string? expected=artifact?["sha1"]?.GetValue<string>();
             if(!string.IsNullOrEmpty(expected)){using var stream=File.OpenRead(file);if(!Convert.ToHexString(SHA1.HashData(stream)).Equals(expected,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("An installed NeoForge library failed verification.");}
         }
+    }
+
+    internal static bool CanReuseInstalled(string install,LanSyncInfo info,string officialVersion,bool requireLauncherFiles=false)
+    {
+        try
+        {
+            string id="neoforge-"+info.LoaderVersion;
+            if(requireLauncherFiles&&!HasLaunchFiles(install,info))return false;
+            var installed=JsonNode.Parse(File.ReadAllText(Path.Combine(install,"versions",id,id+".json")))!;
+            var expected=JsonNode.Parse(officialVersion)!;
+            // Verify against the downloaded official manifest, not a potentially incomplete local list.
+            if(!JsonNode.DeepEquals(installed["libraries"],expected["libraries"])||!JsonNode.DeepEquals(installed["mainClass"],expected["mainClass"])||!JsonNode.DeepEquals(installed["arguments"],expected["arguments"]))return false;
+            VerifyInstalled(install,info);
+            return true;
+        }
+        catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException){return false;}
     }
 
     static string Hash(string path){using var stream=File.OpenRead(path);return Convert.ToHexString(SHA256.HashData(stream));}
@@ -156,13 +207,25 @@ internal static class NeoForgeUpdate
         throw new InvalidOperationException("Java 21 is missing from CurseForge. Launch your Minecraft 1.21 profile in CurseForge once, then retry.");
     }
 
-    static async Task RunInstaller(string java,string installer,string runtime,string working,CancellationToken token)
+    static async Task RunInstaller(string java,string installer,string runtime,string working,CancellationToken token,Action<string>? progress)
     {
         using var process=new Process{StartInfo=new(java){WorkingDirectory=working,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true}};
         foreach(string arg in new[]{"-jar",installer,"--installClient",runtime})process.StartInfo.ArgumentList.Add(arg);
         process.Start();
         var stdout=process.StandardOutput.ReadToEndAsync();var stderr=process.StandardError.ReadToEndAsync();
-        try{await process.WaitForExitAsync(token);}catch{if(!process.HasExited)process.Kill(true);await process.WaitForExitAsync();throw;}
+        var started=Stopwatch.StartNew();
+        var exited=process.WaitForExitAsync(token);
+        try
+        {
+            while(!exited.IsCompleted)
+            {
+                if(await Task.WhenAny(exited,Task.Delay(TimeSpan.FromSeconds(5),token))==exited)break;
+                token.ThrowIfCancellationRequested();
+                progress?.Invoke($"Installing NeoForge… {started.Elapsed:mm\\:ss} elapsed. Preparing Minecraft libraries; this can take several minutes.");
+            }
+            await exited;
+        }
+        catch{if(!process.HasExited)process.Kill(true);await process.WaitForExitAsync();throw;}
         string log=await stdout+"\n"+await stderr;
         if(process.ExitCode!=0)throw new InvalidOperationException("NeoForge installation failed. "+string.Join(" ",log.Split('\n').Where(l=>l.Contains("error",StringComparison.OrdinalIgnoreCase)||l.Contains("fail",StringComparison.OrdinalIgnoreCase)).TakeLast(3)));
     }

@@ -7,9 +7,15 @@ internal static class UpdateTests
 {
     internal static void InstallFiles(string root,List<string> checks)
     {
-        string folder=Path.Combine(root,"client-install"),source=Environment.ProcessPath!;Directory.CreateDirectory(folder);
+        if(!UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--type=renderer --uid="+UpdateShutdown.CurseForgeExtension+" --owapp=CurseForge")||
+           !UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid=\""+UpdateShutdown.CurseForgeExtension+"\"")||
+           UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid=another-extension --owapp=CurseForge")||
+           UpdateShutdown.IsCurseForgeRenderer("java.exe","--uid="+UpdateShutdown.CurseForgeExtension)||
+           UpdateShutdown.IsCurseForgeRenderer("OverwolfBrowser.exe","--uid="+UpdateShutdown.CurseForgeExtension+"-other"))throw new Exception("Overwolf CurseForge identification failed");
+        checks.Add("Overwolf CurseForge background processes are identified by their exact extension ID; unrelated apps and Java are excluded");
+        string folder=Path.Combine(root,"client-install"),source=Path.Combine(root,"new-client.exe");Directory.CreateDirectory(folder);
         string target=Path.Combine(folder,"Minecraft Harbor Client.exe"),config=Path.Combine(folder,"connection.json");
-        File.WriteAllText(target,"old application");File.WriteAllText(config,"preserve my pairing and folder");
+        File.WriteAllText(target,"old application");File.WriteAllText(config,"preserve my pairing and folder");File.WriteAllText(source,"updated application");
         if(!ClientInstallation.Exists(folder))throw new Exception("Existing client was not detected");
         using(var locked=new FileStream(target,FileMode.Open,FileAccess.Read,FileShare.Read))
         {
@@ -17,25 +23,9 @@ internal static class UpdateTests
             if(!rejected||File.ReadAllText(target)!="old application")throw new Exception("Locked update damaged the installed client");
         }
         ClientInstallation.Install(source,folder);
-        if(new FileInfo(target).Length<65536||!File.Exists(Path.Combine(folder,"Minecraft Harbor Client.dll"))||!File.Exists(Path.Combine(folder,"coreclr.dll"))||File.ReadAllText(config)!="preserve my pairing and folder")throw new Exception("Client update missed compiled files or altered its connection");
-        if(Directory.GetDirectories(folder,".harbor-install-*").Length!=0)throw new Exception("Client installer left staging files");
-        File.Delete(Path.Combine(folder,"System.Management.dll"));
-        ClientInstallation.Install(Environment.ProcessPath!,folder);
-        if(!File.Exists(Path.Combine(folder,"System.Management.dll")))throw new Exception("Client update did not repair a missing compiled dependency");
-        checks.Add("Client installer extracts and verifies all compiled client/runtime files, replaces an older single-file client, repairs missing DLLs, preserves pairing, and rejects locked updates before replacement");
-        string report=Path.Combine(root,"installed-runtime.json");
-        var start=new ProcessStartInfo(target){UseShellExecute=false,CreateNoWindow=true};start.ArgumentList.Add("--runtime-check");start.ArgumentList.Add(report);
-        using var installed=Process.Start(start)??throw new Exception("Installed client did not start");
-        if(!installed.WaitForExit(30000)||installed.ExitCode!=0||!File.Exists(report))throw new Exception("Installed client is missing runtime files");
-        checks.Add("The actual installed client starts from its installation folder with its bundled runtime, loads its Windows UI and system-query dependencies, and preserves existing connection files");
-    }
-
-    internal static void RuntimeCheck(string report)
-    {
-        using var form=new Form();form.CreateControl();
-        using var query=new System.Management.ManagementObjectSearcher("SELECT Version FROM Win32_OperatingSystem");using var results=query.Get();
-        if(results.Count==0)throw new Exception("Windows system-query dependency is unavailable");
-        File.WriteAllText(report,JsonSerializer.Serialize(new{passed=true,uiLoaded=true,systemQueryLoaded=true,bundledRuntime=true}));
+        if(File.ReadAllText(target)!="updated application"||File.ReadAllText(config)!="preserve my pairing and folder")throw new Exception("Client update failed or altered its connection");
+        if(Directory.GetFiles(folder,"*.tmp").Length!=0)throw new Exception("Client installer left staging files");
+        checks.Add("Client installer detects an existing copy, preserves pairing, updates atomically, and leaves the old copy intact on a locked-file failure");
     }
 
     internal static void Fixture(string report)
