@@ -1,23 +1,24 @@
-param([Parameter(Mandatory=$true)][string]$JavaHome,[Parameter(Mandatory=$true)][string]$LegacyClientInstaller,[string]$OutputDirectory=(Join-Path $PSScriptRoot 'artifacts'))
+param([Parameter(Mandatory=$true)][string]$JavaHome,[Parameter(Mandatory=$true)][string]$LegacyClientInstaller,[ValidateSet('5.0.0-rc.2')][string]$AutoModpackVersion='5.0.0-rc.2',[string]$OutputDirectory=(Join-Path $PSScriptRoot 'artifacts'))
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $releaseRoot=[IO.Path]::GetFullPath($OutputDirectory)
 $appOutput=Join-Path $releaseRoot 'app'
 $installerOutput=Join-Path $releaseRoot 'installer'
-$connectorOutput=Join-Path $releaseRoot 'connector'
-& (Join-Path $PSScriptRoot 'Build-Connector.ps1') -JavaHome $JavaHome -OutputDirectory $connectorOutput
-$helper=Join-Path $connectorOutput 'automodpack-mc1.21.1-neoforge-4.0.6-harbor14.jar'
+$connectorOutput=Join-Path $releaseRoot 'automodpack'
+$helper=& (Join-Path $PSScriptRoot 'Build-AutoModpack.ps1') -Version $AutoModpackVersion -OutputDirectory $connectorOutput
 $helperHash=(Get-FileHash -LiteralPath $helper).Hash
 $clientSource=Join-Path $PSScriptRoot 'source/ClientSetup.cs'
 $source=[IO.File]::ReadAllText($clientSource)
 if([regex]::Matches($source,'internal const string HelperSha256 = "[A-F0-9]{64}";').Count -ne 1){throw 'Helper checksum declaration not found'}
 $source=[regex]::Replace($source,'internal const string HelperSha256 = "[A-F0-9]{64}";','internal const string HelperSha256 = "'+$helperHash+'";')
+$source=[regex]::Replace($source,'public const string HelperName = "[^"]+";','public const string HelperName = "'+[IO.Path]::GetFileName($helper)+'";')
 [IO.File]::WriteAllText($clientSource,$source)
 function Publish-Project([string]$Project,[string]$Destination){
     & dotnet publish $Project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=false -o $Destination
     if($LASTEXITCODE -ne 0){throw "Publish failed: $Project"}
 }
 Publish-Project (Join-Path $PSScriptRoot 'source/MinecraftHarbor.csproj') $appOutput
+& (Join-Path $PSScriptRoot 'Build-ServerTools.ps1') -JavaHome $JavaHome -AutoModpackJar $helper -OutputDirectory (Join-Path $appOutput 'server-tools')
 $clientDirectory=Join-Path $appOutput 'client-setup'
 [IO.Directory]::CreateDirectory($clientDirectory)|Out-Null
 # Keep the existing standalone client installer unchanged in this release.
